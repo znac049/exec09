@@ -3053,4 +3053,9 @@ void print_regs (void)
    printf ("DP: 0x%02X\n", get_dp() );
    printf (" A: 0x%02X      B: 0x%02X    [D]: 0x%04X   CC: %s\n",
             get_a(), get_b(), read16(get_d()), flags );
+
+#ifdef H6309
+   printf (" E: 0x%02X      F: 0x%02X    [W]: 0x%04X   MD: 0x%02X\n",
+            get_e(), get_f(), read16(get_w()), get_md());
+#endif /* H6309 */
 }

@@ -7,7 +7,7 @@
 #undef CONFIG_WPC
 
 /* Use 6309 extensions */
-#undef H6309
+#define H6309
 
 /* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
 #undef HAVE_DOPRNT

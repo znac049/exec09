@@ -26,6 +26,29 @@ debugger command-line:
 > make
 
 -----------------------------------------------------------------
+Command Line
+
+The following command line options are supported:
+
+-d | --debug  	      Enter the monitor immediately
+-h | --help	      Print usage message
+-b | --binary	      ?????
+-M | --mhz            Set processor clock???
+--68a09		      Emulate the 68A09 variation (1.5MHz)
+--68b09		      Emulate the 68b09 variation (2.0MHz)
+-R | --realtime       Limit simulation speed to match realtime
+-I | --irqfreq <n>    Asserts an IRQ every so many cycles automatically
+-F --firqfreq <n>     Asserts an FIRQ every so many cycles automatically
+-C | --cycledump      ?????
+-t | --loadmap	      ?????
+-T | --trace          Enable instruction tracing
+-m | --maxcycles      Set maximum number of cycles to run (0 to disable)
+-s | --machine <name> Specify the hardware variant to emulate
+-p | --persistent     Use persistent machine state
+
+
+
+-----------------------------------------------------------------
 Input Files
 
 

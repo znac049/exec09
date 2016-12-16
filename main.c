@@ -205,7 +205,11 @@ do_help (const char *arg __attribute__((unused)))
 {
 	struct option *opt = option_table;
 
-	printf ("Motorola 6809 Simulator     Version %s\n", PACKAGE_VERSION);
+	printf ("Motorola 6809");
+#ifdef H6309
+	printf("/Hitachi 6309");
+#endif
+	printf (" Simulator     Version %s\n", PACKAGE_VERSION);
 	printf ("m6809-run [options] [program]\n\n");
 	printf ("Options:\n");
 	while (opt->o_long != NULL)

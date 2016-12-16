@@ -674,6 +674,7 @@ void machine_init (const char *machine_name, const char *boot_rom_file)
 	extern struct machine smii_machine;
 	extern struct machine multicomp09_machine;
 	extern struct machine kipper1_machine;
+	extern struct machine gtron_machine;
 	int i;
 
 	/* Initialize CPU maps, so that no CPU addresses map to
@@ -690,6 +691,7 @@ void machine_init (const char *machine_name, const char *boot_rom_file)
 	else if (machine_match (machine_name, boot_rom_file, &smii_machine));
 	else if (machine_match (machine_name, boot_rom_file, &multicomp09_machine));
 	else if (machine_match (machine_name, boot_rom_file, &kipper1_machine));
+	else if (machine_match (machine_name, boot_rom_file, &gtron_machine));
 	else exit (1);
 
 	/* Save the default busmap configuration, before the
