@@ -1,5 +1,7 @@
+#include <stdio.h>
 #include <fcntl.h>
 #include "machine.h"
+
 #include "gtron.h"
 
 
@@ -10,6 +12,7 @@ void gtron_init (const char *boot_rom_file)
 {
   struct hw_device *iodev;
   struct hw_device *uart;
+  struct hw_device *cfdev;
 
   printf("GTron init: rom='%s'\n", boot_rom_file);
 
@@ -21,7 +24,10 @@ void gtron_init (const char *boot_rom_file)
 
   iodev = ioexpand_create();
   uart = mc6850_create();
+  cfdev = compact_flash_create();
+
   ioexpand_attach(iodev, 0, 0x00, uart);
+  ioexpand_attach(iodev, 2, 0x00, cfdev);
   device_define(iodev, 0, 0xff00, 128, MAP_READWRITE);
 }
 

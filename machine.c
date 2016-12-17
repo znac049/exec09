@@ -493,7 +493,7 @@ struct hw_device *rom_create (const char *filename, unsigned int maxsize)
 
 	if (filename)
 	{
-		fp = file_open (NULL, filename, "rb");
+		fp = file_open(NULL, filename, "rb");
 		if (!fp)
 			return NULL;
 		image_size = sizeof_file (fp);
@@ -702,4 +702,3 @@ void machine_init (const char *machine_name, const char *boot_rom_file)
 	if (!strcmp (machine_name, "eon"))
 		mmu_reset_complete (mmu_device);
 }
-

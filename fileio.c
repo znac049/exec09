@@ -1,4 +1,24 @@
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include "6809.h"
+
+#define MAXSTR 256
+
+static char fqname[MAXSTR];
+
+int 
+file_exists (const char *name)
+{
+        struct stat inf;
+
+        if (stat(name, &inf) == 0) {
+                return S_ISREG(inf.st_mode);
+        }
+
+        return 0;
+}
 
 void
 path_init (struct pathlist *path)
@@ -19,16 +39,21 @@ FILE *
 file_open (struct pathlist *path, const char *filename, const char *mode)
 {
 	FILE *fp;
-	char fqname[128];
 	int count;
 	const char dirsep = '/';
 
 	fp = fopen (filename, mode);
-	if (fp)
-		return fp;
+	if (fp) {
+	        strcpy(fqname, filename);
 
-	if (!path || strchr (filename, dirsep) || *mode == 'w')
+		return fp;
+	}
+
+	if (!path || strchr (filename, dirsep) || *mode == 'w') {
+	        fqname[0] = '\0';
+
 		return NULL;
+	}
 
 	for (count = 0; count < path->count; count++)
 	{
@@ -37,6 +62,8 @@ file_open (struct pathlist *path, const char *filename, const char *mode)
 		if (fp)
 			return fp;
 	}
+
+	fqname[0] = '\0';
 
 	return NULL;
 }
@@ -58,3 +85,8 @@ file_close (FILE *fp)
 	fclose (fp);
 }
 
+char 
+*file_get_fqname()
+{
+        return fqname;
+}

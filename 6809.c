@@ -1728,7 +1728,7 @@ int cpu_execute (int cycles)
 	  direct ();
 	  cpu_clk -= 3;
 	  PC = ea;
-     check_pc ();
+	  check_pc ();
 	  monitor_call (FC_TAIL_CALL);
 	  break;		/* JMP direct */
 	case 0x0f:
@@ -2016,27 +2016,27 @@ int cpu_execute (int cycles)
 		swi3 ();
 		break;
 #ifdef H6309
-			case 0x80: /* SUBE */
-			case 0x81: /* CMPE */
+	      case 0x80: /* SUBE */
+	      case 0x81: /* CMPE */
 #endif
 	      case 0x83:
 		cpu_clk -= 5;
 		cmp16 (U, imm_word ());
 		break;
 #ifdef H6309
-			case 0x86: /* LDE */
-			case 0x8B: /* ADDE */
+	      case 0x86: /* LDE */
+	      case 0x8B: /* ADDE */
 #endif
 	      case 0x8c:
 		cpu_clk -= 5;
 		cmp16 (S, imm_word ());
 		break;
 #ifdef H6309
-			case 0x8D: /* DIVD */
-			case 0x8E: /* DIVQ */
-			case 0x8F: /* MULD */
-			case 0x90: /* SUBE */
-			case 0x91: /* CMPE */
+	      case 0x8D: /* DIVD */
+	      case 0x8E: /* DIVQ */
+	      case 0x8F: /* MULD */
+	      case 0x90: /* SUBE */
+	      case 0x91: /* CMPE */
 #endif
 	      case 0x93:
 		direct ();
@@ -2056,6 +2056,24 @@ int cpu_execute (int cycles)
 		cmp16 (U, RDMEM16 (ea));
 		cpu_clk--;
 		break;
+#ifdef H6309
+	      case 0xa6: /* LDE */
+		indexed ();
+		E = ld (RDMEM (ea));
+		break;
+	      case 0xa7: /* STE */
+		indexed ();
+		st (E);
+		break;
+	      case 0xe6: /* LDF */
+		indexed ();
+		F = ld (RDMEM (ea));
+		break;
+	      case 0xe7: /* STF */
+		indexed ();
+		st (F);
+		break;
+#endif
 	      case 0xac:
 		cpu_clk--;
 		indexed ();

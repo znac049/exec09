@@ -28,6 +28,8 @@ typedef unsigned short U16;
 
 typedef unsigned long absolute_address_t;
 
+#define MAX_PATH 512
+
 #define MAX_CPU_ADDR 65536
 
 /* The generic bus architecture. */
