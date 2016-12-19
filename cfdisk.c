@@ -2,7 +2,7 @@
  * Copyright 2009 by Brian Dominy <brian@oddchange.com>
  *
  * This file is part of GCC6809.
- *
+[6~ *
  * GCC6809 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -43,9 +43,19 @@
 #define CF_STATUS_REG 7
 #define CF_COMMAND_REG 7
 
-#define CF_ 0
-#define CF_ 0
-
+#define CMD_READLONG_RETRY 0x22
+#define CMD_READLONG 0x23
+#define CMD_EJECT 0xed
+#define CMD_NOP 0x00
+#define CMD_SEEK 0x70
+#define CMD_WRITELONG_RETRY 0x32
+#define CMD_WRITELONG 0x33
+#define CMD_DOOR_LOCK 0xde
+#define CMD_DOOR_UNLOCK 0xdf
+#define CMD_IDENTIFY_DEVICE 0xec
+#define CMD_SET_FEATURES 0xef
+#define CMD_SET_MULTIPLE_MODE 0xc6
+#define CMD_EXECUTE_DEVICE_DIAGNOSTIC 0x90
 
 /* Emulate an IDE Compact Flash card or cards.
    */
@@ -74,6 +84,10 @@ struct cf_controller
 {
   struct cf_disk disk[2];
   int controllerId;
+  U8 status_reg;
+  U8 error_reg;
+  U8 features_reg;
+  U8 data[BYTES_PER_SECTOR];
 };
 
 static int controllerId = 0;
@@ -89,6 +103,7 @@ U8 compact_flash_read (struct hw_device *dev, unsigned long addr)
     break;
 
   case CF_ERROR_REG:
+    retval = controller->error_reg;
     break;
 
   case CF_SECTOR_COUNT_REG:
@@ -112,10 +127,70 @@ U8 compact_flash_read (struct hw_device *dev, unsigned long addr)
     break;
 
   case CF_STATUS_REG:
+    retval = controller->status_reg;
     break;
   }
 
   return retval;
+}
+
+void exec_features_command(struct cf_controller *controller, struct cf_disk *disk, U8 cmd)
+{
+  switch (cmd) {
+  case 0x01: /* Enable 8-bit  data transfers */
+    break;
+
+  case 0x02: /* Enable write cache */
+    break;
+
+  case 0x03: /* Set transfer mode */
+    break;
+
+  case 0x33: /* Disable retry */
+    break;
+
+  case 0x44: /* Length of vendor specific bytes on read/write long commands */
+    break;
+
+  case 0x54: /* Set cache segments too Sector Count register */
+    break;
+
+  case 0x55: /* Disable read lookahead feature */
+    break;
+
+  case 0x66: /* Disable reverting to power on defaults */
+    break;
+
+  case 0x77: /* Disable ECC */
+    break;
+
+  case 0x81: /* Disable 8-bit data transfers */
+    break;
+
+  case 0x82: /* Disable write cache */
+    break;
+
+  case 0x88: /* Disable CRC */
+    break;
+
+  case 0x99: /* Enable retries */
+    break;
+
+  case 0xaa: /* Enable read look ahead */
+    break;
+
+  case 0xab: /* Set maximum prefetch */
+    break;
+
+  case 0xbb: /* 4 bytes of vendor sprecific bytes on read/write long */
+    break;
+
+  case 0xcc: /* Enable reverting to power on defaults */
+    break;
+
+  default:
+    break;
+  }
 }
 
 void compact_flash_write (struct hw_device *dev, unsigned long addr, U8 val)
@@ -151,6 +226,30 @@ void compact_flash_write (struct hw_device *dev, unsigned long addr, U8 val)
     break;
 
   case CF_COMMAND_REG:
+    switch(val) {
+    case CMD_EXECUTE_DEVICE_DIAGNOSTIC:
+      {
+	U8 code = 0;
+
+	if (disk->fd) {
+	  code = 0x01;
+	}
+	controller->error_reg = code;
+      }
+      break;
+
+    case CMD_SET_FEATURES:
+      exec_features_command(controller, disk, val);
+      break;
+
+    case CMD_WRITELONG:
+    case CMD_WRITELONG_RETRY:
+      break;
+
+    case CMD_READLONG:
+    case CMD_READLONG_RETRY:
+      break;
+    }
     break;
   }
 }
