@@ -927,6 +927,43 @@ static unsigned neg (int arg)
   return res;
 }
 
+#ifdef H6309
+static unsigned oim (unsigned arg, unsigned val)
+{
+  unsigned res = arg | val;
+
+  N = (res & 0x80);
+  Z = (res == 0);
+  OV = 0;
+
+  return res;
+}
+
+static unsigned aim (unsigned arg, unsigned val)
+{
+  unsigned res = arg & val;
+
+  N = (res & 0x80);
+  Z = (res == 0);
+  OV = 0;
+
+  return res;
+}
+
+static unsigned eim (unsigned arg, unsigned val)
+{
+  unsigned res = arg ^ val;
+
+  N = (res & 0x80);
+  Z = (res == 0);
+  OV = 0;
+  cpu_clk -= 2;
+
+  return res;
+}
+
+#endif
+
 static unsigned or (unsigned arg, unsigned val)
 {
   unsigned res = arg | val;
@@ -1638,6 +1675,28 @@ static void bsr (void)
   monitor_call (0);
 }
 
+#ifdef H6309
+static void addr(void)
+{
+  unsigned regs = read8(PC);
+  unsigned r1 = ((regs & 0xf0) >> 4);
+  unsigned r2 = regs & 0x0f;
+
+  PC++;
+}
+
+static void ldw(unsigned arg)
+{
+  unsigned res = arg;
+
+  Z = res;
+  E = N = res >> 8;
+  F = res & 0xff;
+  OV = 0;
+}
+
+#endif
+
 /* Execute 6809 code for a certain number of cycles. */
 int cpu_execute (int cycles)
 {
@@ -1671,7 +1730,7 @@ int cpu_execute (int cycles)
 	    unsigned immval = imm_byte();
 	    direct();
 	    cpu_clk -= 4;
-	    WRMEM(ea, RDMEM(ea) | immval);
+	    WRMEM(ea, oim(RDMEM(ea), immval));
 	  }
 	  break;
 	case 0x02:		/* AIM */
@@ -1679,7 +1738,7 @@ int cpu_execute (int cycles)
 	    unsigned immval = imm_byte();
 	    direct();
 	    cpu_clk -= 4;
-	    WRMEM(ea, RDMEM(ea) & immval);
+	    WRMEM(ea, aim(RDMEM(ea), immval));
 	  }
 	  break;
 #endif
@@ -1699,7 +1758,7 @@ int cpu_execute (int cycles)
 	    unsigned immval = imm_byte();
 	    direct();
 	    cpu_clk -= 4;
-	    WRMEM(ea, RDMEM(ea) ^ immval);
+	    WRMEM(ea, eim(RDMEM(ea),immval));
 	  }
 	  break;
 #endif
@@ -1808,6 +1867,7 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0x30:	/* ADDR */
+		addr();
 		break;
 	      case 0x31:	/* ADCR */
 		break;
@@ -1891,6 +1951,8 @@ int cpu_execute (int cycles)
 	      case 0x85:	/* BITD */
 		break;
 	      case 0x86:	/* LDW */
+		cpu_clk -= 3;
+		ldw(imm_word());
 		break;
 	      case 0x88:	/* EORD */
 		break;
@@ -2183,6 +2245,8 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0x86: /* LDE */
+		cpu_clk -= 2;
+		E = ld (imm_byte ());
 		break;
 	      case 0x8b: /* ADDE */
 		break;
@@ -2303,6 +2367,8 @@ int cpu_execute (int cycles)
 	      case 0xc1: /* CMPF */
 		break;
 	      case 0xc6: /* LDF */
+		cpu_clk -= 2;
+		F = ld (imm_byte ());
 		break;
 	      case 0xcb: /* ADDF */
 		break;

@@ -40,7 +40,10 @@ int dump_every_insn = 0;
 enum addr_mode
 {
   _illegal, _implied, _imm_byte, _imm_word, _direct, _extended,
-  _indexed, _rel_byte, _rel_word, _reg_post, _sys_post, _usr_post
+  _indexed, _rel_byte, _rel_word, _reg_post, _sys_post, _usr_post,
+#ifdef H6309
+  _imm_direct, _reg_reg
+#endif
 };
 
 enum opcode
@@ -62,7 +65,7 @@ enum opcode
   _swi2, _swi3, _sync, _tfr, _tsta, _tstb, _tst, _reset,
 #ifdef H6309
   _negd, _comd, _lsrd, _rord, _asrd, _rold, _decd, _incd, _tstd,
-  _clrd
+  _clrd, _oim, _aim, _eim, _addr, _lde, _ldf, _ldw
 #endif
 };
 
@@ -84,7 +87,8 @@ char *mne[] = {
   "SWI2", "SWI3", "SYNC", "TFR", "TSTA", "TSTB", "TST", "RESET",
 #ifdef H6309
   "NEGD", "COMD", "LSRD", "RORD", "ASRD", "ROLD", "DECD",
-  "INCD", "TSTD", "CLRD",
+  "INCD", "TSTD", "CLRD", "OIM", "AIM", "EIM", "ADDR", "LDE", "LDF", 
+  "LDW"
 #endif
 };
 
@@ -95,12 +99,22 @@ typedef struct
 } opcode_t;
 
 opcode_t codes[256] = {
+  // 00
   {_neg, _direct},
+#ifdef H6309
+  {_oim, _imm_direct},
+  {_aim, _imm_direct},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_com, _direct},
   {_lsr, _direct},
+#ifdef H6309
+  {_eim, _direct},
+#else
   {_undoc, _illegal},
+#endif
   {_ror, _direct},
   {_asr, _direct},
   {_asl, _direct},
@@ -111,6 +125,7 @@ opcode_t codes[256] = {
   {_tst, _direct},
   {_jmp, _direct},
   {_clr, _direct},
+  // 10
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_nop, _implied},
@@ -127,6 +142,7 @@ opcode_t codes[256] = {
   {_sex, _implied},
   {_exg, _reg_post},
   {_tfr, _reg_post},
+  // 20
   {_bra, _rel_byte},
   {_brn, _rel_byte},
   {_bhi, _rel_byte},
@@ -143,6 +159,7 @@ opcode_t codes[256] = {
   {_blt, _rel_byte},
   {_bgt, _rel_byte},
   {_ble, _rel_byte},
+  // 30
   {_leax, _indexed},
   {_leay, _indexed},
   {_leas, _indexed},
@@ -159,6 +176,7 @@ opcode_t codes[256] = {
   {_mul, _implied},
   {_reset, _implied},
   {_swi, _implied},
+  // 40
   {_nega, _implied},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -175,6 +193,7 @@ opcode_t codes[256] = {
   {_tsta, _implied},
   {_undoc, _illegal},
   {_clra, _implied},
+  // 50
   {_negb, _implied},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -191,6 +210,7 @@ opcode_t codes[256] = {
   {_tstb, _implied},
   {_undoc, _illegal},
   {_clrb, _implied},
+  // 60
   {_neg, _indexed},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -207,6 +227,7 @@ opcode_t codes[256] = {
   {_tst, _indexed},
   {_jmp, _indexed},
   {_clr, _indexed},
+  // 70
   {_neg, _extended},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -223,6 +244,7 @@ opcode_t codes[256] = {
   {_tst, _extended},
   {_jmp, _extended},
   {_clr, _extended},
+  // 80
   {_suba, _imm_byte},
   {_cmpa, _imm_byte},
   {_sbca, _imm_byte},
@@ -239,6 +261,7 @@ opcode_t codes[256] = {
   {_bsr, _rel_byte},
   {_ldx, _imm_word},
   {_undoc, _illegal},
+  // 90
   {_suba, _direct},
   {_cmpa, _direct},
   {_sbca, _direct},
@@ -255,6 +278,7 @@ opcode_t codes[256] = {
   {_jsr, _direct},
   {_ldx, _direct},
   {_stx, _direct},
+  // A0
   {_suba, _indexed},
   {_cmpa, _indexed},
   {_sbca, _indexed},
@@ -271,6 +295,7 @@ opcode_t codes[256] = {
   {_jsr, _indexed},
   {_ldx, _indexed},
   {_stx, _indexed},
+  // B0
   {_suba, _extended},
   {_cmpa, _extended},
   {_sbca, _extended},
@@ -287,6 +312,7 @@ opcode_t codes[256] = {
   {_jsr, _extended},
   {_ldx, _extended},
   {_stx, _extended},
+  // C0
   {_subb, _imm_byte},
   {_cmpb, _imm_byte},
   {_sbcb, _imm_byte},
@@ -303,6 +329,7 @@ opcode_t codes[256] = {
   {_undoc, _illegal},
   {_ldu, _imm_word},
   {_undoc, _illegal},
+  // D0
   {_subb, _direct},
   {_cmpb, _direct},
   {_sbcb, _direct},
@@ -319,6 +346,7 @@ opcode_t codes[256] = {
   {_std, _direct},
   {_ldu, _direct},
   {_stu, _direct},
+  // E0
   {_subb, _indexed},
   {_cmpb, _indexed},
   {_sbcb, _indexed},
@@ -335,6 +363,7 @@ opcode_t codes[256] = {
   {_std, _indexed},
   {_ldu, _indexed},
   {_stu, _indexed},
+  // F0
   {_subb, _extended},
   {_cmpb, _extended},
   {_sbcb, _extended},
@@ -354,6 +383,7 @@ opcode_t codes[256] = {
 };
 
 opcode_t codes10[256] = {
+  // 00
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -370,6 +400,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 10
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -386,6 +417,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 20
   {_undoc, _illegal},
   {_lbrn, _rel_word},
   {_lbhi, _rel_word},
@@ -402,7 +434,12 @@ opcode_t codes10[256] = {
   {_lblt, _rel_word},
   {_lbgt, _rel_word},
   {_lble, _rel_word},
+  // 30
+#ifdef H6309
+  {_addr, _reg_reg},
+#else
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -418,6 +455,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_swi2, _implied},
+  // 40
   {_undoc, _illegal}, /* 10 40 */
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -434,6 +472,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 50
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -450,6 +489,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 60
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -466,6 +506,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 70
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -482,13 +523,18 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 80
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_cmpd, _imm_word},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_ldw, _imm_word},
+#else
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -498,6 +544,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_ldy, _imm_word},
   {_undoc, _illegal},
+  // 90
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -514,6 +561,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_ldy, _direct},
   {_sty, _direct},
+  // A0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -530,6 +578,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_ldy, _indexed},
   {_sty, _indexed},
+  // B0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -546,6 +595,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_ldy, _extended},
   {_sty, _extended},
+  // C0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -562,6 +612,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_lds, _imm_word},
   {_undoc, _illegal},
+  // D0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -578,6 +629,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_lds, _direct},
   {_sts, _direct},
+  // E0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -594,6 +646,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_lds, _indexed},
   {_sts, _indexed},
+  // F0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -613,6 +666,7 @@ opcode_t codes10[256] = {
 };
 
 opcode_t codes11[256] = {
+  // 00
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -629,6 +683,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 10
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -645,6 +700,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 20
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -661,6 +717,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 30
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -677,6 +734,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_swi3, _implied},
+  // 40
   {_undoc, _illegal}, /* 11 40 */
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -693,6 +751,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 50
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -709,6 +768,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 60
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -725,6 +785,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 70
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -741,13 +802,18 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 80
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_cmpu, _imm_word},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_lde, _imm_byte},
+#else
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -757,6 +823,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // 90
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -773,6 +840,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // A0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -789,6 +857,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // B0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -805,6 +874,28 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // C0
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+#ifdef H6309
+  {_ldf, _imm_byte},
+#else
+  {_undoc, _illegal},
+#endif
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  // D0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -821,6 +912,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+  // E0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -837,22 +929,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
+  // F0
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -871,10 +948,17 @@ opcode_t codes11[256] = {
   {_undoc, _illegal}
 };
 
+#ifdef H6309
+char *reg[] = {
+  "D", "X", "Y", "U", "S", "PC", "W", "V",
+  "A", "B", "CC", "DP", "??", "??", "E", "F"
+};
+#else
 char *reg[] = {
   "D", "X", "Y", "U", "S", "PC", "??", "??",
   "A", "B", "CC", "DP", "??", "??", "??", "??"
 };
+#endif
 
 char index_reg[] = { 'X', 'Y', 'U', 'S' };
 
@@ -937,6 +1021,24 @@ int dasm (char *buf, absolute_address_t opc)
     case _extended:
       sprintf (buf, "%s", monitor_addr_name (fetch16 ()));
       break;
+#ifdef H6309
+    case _imm_direct:
+      {
+	unsigned immval = fetch8();
+	const char *ea = monitor_addr_name(fetch8());
+	sprintf (buf, "#$%02x,<%s", immval, ea);
+      }
+      break;
+    case _reg_reg:
+      {
+	unsigned regs = fetch8();
+	unsigned r1 = (regs & 0xf0) >> 4;
+	unsigned r2 = regs & 0x0f;
+
+	sprintf (buf, "%s,%s", reg[r1], reg[r2]);
+      }
+      break;
+#endif
 
     case _indexed:
       op = fetch8 ();
@@ -1117,7 +1219,7 @@ int load_map_file (const char *name)
 	printf ("Reading symbols from '%s'...\n", map_filename);
 	for (;;)
 	{
-		fgets (buf, sizeof(buf)-1, fp);
+	        char *bp = fgets (buf, sizeof(buf)-1, fp);
 		if (feof (fp))
 			break;
 
@@ -1193,28 +1295,32 @@ int load_hex (FILE *fp)
       switch (type)
 	{
 	case 0:
-	  for (; count != 0; count--, addr++, checksum += data)
-	    {
-              if (fscanf(fp, "%2x", &data))
-                {
-		   write8(addr, (UINT8) data);
-                }
-              else
-                {
-                  printf("line %d: hex record data inconsistent with count field.\n", line);
-	          break;
-                }
-	    }
+	  {
+	    int res;
 
-	  checksum = (-checksum) & 0xff;
+	    for (; count != 0; count--, addr++, checksum += data)
+	      {
+		if (fscanf(fp, "%2x", &data))
+		  {
+		    write8(addr, (UINT8) data);
+		  }
+		else
+		  {
+		    printf("line %d: hex record data inconsistent with count field.\n", line);
+		    break;
+		  }
+	      }
 
-          if ( (fscanf(fp, "%2x", &data) != 1) || (data != checksum) )
-	    {
-	      printf("line %d: hex record checksum missing or invalid.\n", line);
-	      done = 0;
-	      break;
-	    }
-          fscanf(fp, "%*[\r\n]"); /* skip any form of line ending */
+	    checksum = (-checksum) & 0xff;
+
+	    if ( (fscanf(fp, "%2x", &data) != 1) || (data != checksum) )
+	      {
+		printf("line %d: hex record checksum missing or invalid.\n", line);
+		done = 0;
+		break;
+	      }
+	    res = fscanf(fp, "%*[\r\n]"); /* skip any form of line ending */
+	  }
 	  break;
 
 	case 1:
@@ -1258,28 +1364,31 @@ int load_s19(FILE *fp)
       switch (type)
 	{
 	case 1:
-	  for (count -= 3; count != 0; count--, addr++, checksum += data)
-	    {
-               if (fscanf (fp, "%2x", &data))
+	  {
+	    int res;
+	    for (count -= 3; count != 0; count--, addr++, checksum += data)
+	      {
+		if (fscanf (fp, "%2x", &data))
                   {
-                     write8 (addr, (UINT8) data);
+		    write8 (addr, (UINT8) data);
                   }
-               else
+		else
                   {
                     printf ("line %d: S record data inconsistent with count field.\n", line);
 	            break;
                   }
-	    }
+	      }
 
-	  checksum = (~checksum) & 0xff;
+	    checksum = (~checksum) & 0xff;
 
-	  if ( (fscanf (fp, "%2x", &data) != 1) || (data != checksum) )
-	    {
-	      printf ("line %d: S record checksum missing or invalid.\n", line);
-	      done = 0;
-	      break;
-	    }
-          fscanf (fp, "%*[\r\n]"); /* skip any form of line ending */
+	    if ( (fscanf (fp, "%2x", &data) != 1) || (data != checksum) )
+	      {
+		printf ("line %d: S record checksum missing or invalid.\n", line);
+		done = 0;
+		break;
+	      }
+	    res = fscanf (fp, "%*[\r\n]"); /* skip any form of line ending */
+	  }
 	  break;
 
 	case 9:
@@ -1346,7 +1455,7 @@ const char* absolute_addr_name (absolute_address_t addr)
 
    bufptr = buf;
 
-   bufptr += sprintf (bufptr, "%02X:0x%04X", addr >> 28, addr & 0xFFFFFF);
+   bufptr += sprintf (bufptr, "%02X:0x%04X", (unsigned)(addr >> 28), (unsigned)(addr & 0xFFFFFF));
 
    name = sym_lookup (&program_symtab, addr);
    if (name)
