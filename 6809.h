@@ -23,23 +23,12 @@
 #ifndef M6809_H
 #define M6809_H
 
-#include "config.h"
 #include <stdio.h>
-#ifdef HAVE_STDLIB_H
-# include <stdlib.h>
-#else
-#error
-#endif
-#ifdef HAVE_STRING_H
-# include <string.h>
-#else
-#error
-#endif
-#ifdef HAVE_STDINT_H
-# include <stdint.h>
-#else
-#error
-#endif
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+
+#define PACKAGE_VERSION "2016/12/20"
 
 typedef uint8_t UINT8;
 typedef signed char INT8;

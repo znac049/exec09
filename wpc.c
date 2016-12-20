@@ -19,11 +19,7 @@
  */
 
 #include "6809.h"
-#ifdef HAVE_SYS_TIME_H
-# include <sys/time.h>
-#else
-#error
-#endif
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>

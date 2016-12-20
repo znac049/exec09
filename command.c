@@ -5,18 +5,14 @@
 #include "machine.h"
 #include <sys/errno.h>
 #include <unistd.h>
-#ifdef HAVE_TERMIOS_H
-# include <termios.h>
-#else
-#error
-#endif
+#include <termios.h>
+
 #ifdef HAVE_READLINE
 # include <readline/readline.h>
 # include <readline/history.h>
 #else
-#error
+# error
 #endif
-
 
 struct termios old_tio, new_tio;
 
