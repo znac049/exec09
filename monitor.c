@@ -830,7 +830,11 @@ opcode_t codes11[256] = {
   {_cmpu, _direct},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_lde, _direct},
+#else
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -847,7 +851,11 @@ opcode_t codes11[256] = {
   {_cmpu, _indexed},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_lde, _indexed},
+#else
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -864,7 +872,11 @@ opcode_t codes11[256] = {
   {_cmpu, _extended},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_lde, _extended},
+#else
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -902,7 +914,11 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_ldf, _direct},
+#else
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -919,7 +935,11 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_ldf, _indexed},
+#else
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -936,7 +956,11 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_ldf, _extended},
+#else
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},

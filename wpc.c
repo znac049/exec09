@@ -586,7 +586,7 @@ void wpc_asic_write (struct hw_device *dev, unsigned long addr, U8 val)
 		case WPC_SOL_FLASH1_OUTPUT:
 		case WPC_SOL_LOWPOWER_OUTPUT:
 			if (val != 0)
-				printf (">>> ASIC write %04X %02X\n", addr + WPC_ASIC_BASE, val);
+				printf (">>> ASIC write %04lX %02X\n", addr + WPC_ASIC_BASE, val);
 			break;
 
 		default:

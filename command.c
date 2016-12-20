@@ -10,6 +10,13 @@
 #else
 #error
 #endif
+#ifdef HAVE_READLINE
+# include <readline/readline.h>
+# include <readline/history.h>
+#else
+#error
+#endif
+
 
 struct termios old_tio, new_tio;
 
@@ -94,7 +101,7 @@ void print_addr (absolute_address_t addr)
 
    print_device_name (addr >> 28);
    putchar (':');
-   printf ("0x%04X", addr & 0xFFFFFF);
+   printf ("0x%04X", (unsigned)(addr & 0xFFFFFF));
 
    name = sym_lookup (&program_symtab, addr);
    if (name)
@@ -1355,7 +1362,7 @@ int print_insn_long (absolute_address_t addr)
 
    print_device_name(addr >> 28);
    putchar(':');
-   printf("0x%04X ", addr & 0xFFFFFF);
+   printf("0x%04X ", (unsigned)(addr & 0xFFFFFF));
 
    for (i = 0; i < size; i++)
       printf("%02X", abs_read8(addr + i));
@@ -1404,7 +1411,7 @@ int command_exec (FILE *infile)
       {
          if (infile == stdin)
             printf ("(dbg) ");
-         fgets (buffer, 255, infile);
+         cmd = fgets (buffer, 255, infile);
          if (feof (infile))
             return -1;
       }

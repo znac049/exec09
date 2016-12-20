@@ -2275,8 +2275,11 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0x96: /* LDE */
+		direct ();
+		cpu_clk -= 4;
+		E = ld (RDMEM (ea));
 		break;
-	      case 0x97: /* STE */
+	      case 0x97: /* STe */
 		break;
 	      case 0x9b: /* ADDE */
 		break;
@@ -2343,6 +2346,9 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0xb6: /* LDE */
+		extended ();
+		cpu_clk -= 5;
+		E = ld (RDMEM (ea));
 		break;
 	      case 0xb7: /* STE */
 		break;
@@ -2377,6 +2383,9 @@ int cpu_execute (int cycles)
 	      case 0xd1: /* CMPF */
 		break;
 	      case 0xd6: /* LDF */
+		direct ();
+		cpu_clk -= 4;
+		F = ld (RDMEM (ea));
 		break;
 	      case 0xd7: /* STF */
 		break;
@@ -2401,6 +2410,9 @@ int cpu_execute (int cycles)
 	      case 0xf1: /* CMPF */
 		break;
 	      case 0xf6: /* LDF */
+		extended ();
+		cpu_clk -= 5;
+		F = ld (RDMEM (ea));
 		break;
 	      case 0xf7: /* STF */
 		break;

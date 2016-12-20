@@ -382,7 +382,7 @@ void describe_machine (void)
 		else
 		{
 			dot_dot = 0;
-			printf ("Map %3d:  addr=%04X  dev=%d  offset=%04X  size=%06X  flags=%02X\n",
+			printf ("Map %3d:  addr=%04X  dev=%d  offset=%04lX  size=%06lX  flags=%02X\n",
 				mapno, mapno * BUS_MAP_SIZE, map->devid, map->offset,
 				device_table[map->devid]->size, map->flags);
 		}
@@ -503,7 +503,7 @@ struct hw_device *rom_create (const char *filename, unsigned int maxsize)
 	dev = device_attach (&rom_class, maxsize, buf);
 	if (filename)
 	{
-		fread (buf, image_size, 1, fp);
+	        int num_read = fread (buf, image_size, 1, fp);
 		fclose (fp);
 		maxsize -= image_size;
 		while (maxsize > 0)
