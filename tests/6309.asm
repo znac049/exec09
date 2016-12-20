@@ -23,7 +23,7 @@ Reset
 	eim	#$82,<fred
 	ldb	<fred
 
-	;  ADDR
+	; ADDR
 	lda	#27
 	lde	#99
 	ldf	#$42
@@ -32,6 +32,22 @@ Reset
 	ldd	#$1234
 	ldw	#$dead
 	addr	w,d
+
+	; 8-bit registers
+	lde	#$55
+	ldf	#$aa
+
+	come
+	comf
+
+	dece
+	ince
+
+	decf
+	incf
+
+	tste
+	tstf
 
 done	bra	done
 

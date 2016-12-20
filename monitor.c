@@ -65,7 +65,8 @@ enum opcode
   _swi2, _swi3, _sync, _tfr, _tsta, _tstb, _tst, _reset,
 #ifdef H6309
   _negd, _comd, _lsrd, _rord, _asrd, _rold, _decd, _incd, _tstd,
-  _clrd, _oim, _aim, _eim, _addr, _lde, _ldf, _ldw
+  _clrd, _oim, _aim, _eim, _addr, _lde, _ldf, _ldw, _dece, _ince, 
+  _tste, _clre, _decf, _incf, _tstf, _clrf, _come, _comf
 #endif
 };
 
@@ -88,7 +89,8 @@ char *mne[] = {
 #ifdef H6309
   "NEGD", "COMD", "LSRD", "RORD", "ASRD", "ROLD", "DECD",
   "INCD", "TSTD", "CLRD", "OIM", "AIM", "EIM", "ADDR", "LDE", "LDF", 
-  "LDW"
+  "LDW", "DECE", "INCE", "TSTE", "CLRE", "DECF", "INCF", "TSTF", "CLRF",
+  "COME", "COMF"
 #endif
 };
 
@@ -738,36 +740,70 @@ opcode_t codes11[256] = {
   {_undoc, _illegal}, /* 11 40 */
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_come, _implied},
+#else
+  {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_dece, _implied},
+#else
+  {_undoc, _illegal},
+#endif
+  {_undoc, _illegal},
+#ifdef H6309
+  {_ince, _implied},
+  {_tste, _implied},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
+#ifdef H6309
+  {_clre, _implied},
+#else
   {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
+#endif
   // 50
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_comf, _implied},
+#else
+  {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_decf, _implied},
+#else
+  {_undoc, _illegal},
+#endif
+  {_undoc, _illegal},
+#ifdef H6309
+  {_incf, _implied},
+  {_tstf, _implied},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
+#ifdef H6309
+  {_clrf, _implied},
+#else
   {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
+#endif
   // 60
   {_undoc, _illegal},
   {_undoc, _illegal},

@@ -2215,24 +2215,34 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0x43: /* CCME */
+		E = com(E);
 		break;
 	      case 0x4a: /* DECE */
+		E = dec(E);
 		break;
 	      case 0x4c: /* INCE */
+		E = inc(E);
 		break;
 	      case 0x4d: /* TSTE */
+		tst(E);
 		break;
 	      case 0x4f: /* CLRE */
+		E = clr(E);
 		break;
 	      case 0x53: /* COMF */
+		F = com(F);
 		break;
 	      case 0x5a: /* DECF */
+		F = dec(F);
 		break;
 	      case 0x5c: /* INCF */
+		F = inc(F);
 		break;
 	      case 0x5d: /* TSTF */
+		tst(F);
 		break;
 	      case 0x5f: /* CLRF */
+		F = clr(F);
 		break;
 	      case 0x80: /* SUBE */
 		break;
@@ -2241,7 +2251,7 @@ int cpu_execute (int cycles)
 #endif
 	      case 0x83:
 		cpu_clk -= 5;
-		cmp16 (U, imm_word ());
+		cmp16(U, imm_word());
 		break;
 #ifdef H6309
 	      case 0x86: /* LDE */
