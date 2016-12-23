@@ -5,6 +5,19 @@ fred	rmb	1
 	org	$e000
 
 Reset
+	; SEXW
+	ldf	#42
+	sexw
+
+	ldf 	#-42
+	sexw
+
+	ldf	#0
+	sexw
+
+	ldf	#-1
+	sexw
+	
 	; Manipulate D
 	ldd	#-27
 	negd

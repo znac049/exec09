@@ -67,7 +67,7 @@ enum opcode
   _negd, _comd, _lsrd, _rord, _asrd, _rold, _decd, _incd, _tstd,
   _clrd, _oim, _aim, _eim, _addr, _lde, _ldf, _ldw, _dece, _ince, 
   _tste, _clre, _decf, _incf, _tstf, _clrf, _come, _comf, 
-  _ldq, _stq
+  _ldq, _stq, _sexw, _tim, _pshsw, _pshuw, _pulsw, _puluw
 #endif
 };
 
@@ -91,7 +91,8 @@ char *mne[] = {
   "NEGD", "COMD", "LSRD", "RORD", "ASRD", "ROLD", "DECD",
   "INCD", "TSTD", "CLRD", "OIM", "AIM", "EIM", "ADDR", "LDE", "LDF", 
   "LDW", "DECE", "INCE", "TSTE", "CLRE", "DECF", "INCF", "TSTF", "CLRF",
-  "COME", "COMF", "LDQ", "STQ"
+  "COME", "COMF", "LDQ", "STQ", "SEXW", "TIM", "PSHSW", "PSHUW", "PULSW",
+  "PULUW"
 #endif
 };
 
@@ -123,7 +124,11 @@ opcode_t codes[256] = {
   {_asl, _direct},
   {_rol, _direct},
   {_dec, _direct},
+#ifdef H6309
+  {_tim, _direct},
+#else
   {_undoc, _illegal},
+#endif
   {_inc, _direct},
   {_tst, _direct},
   {_jmp, _direct},
@@ -133,7 +138,11 @@ opcode_t codes[256] = {
   {_undoc, _illegal},
   {_nop, _implied},
   {_sync, _implied},
+#ifdef H6309
+  {_sexw, _implied},
+#else
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_lbra, _rel_word},
   {_lbsr, _rel_word},
@@ -215,34 +224,60 @@ opcode_t codes[256] = {
   {_clrb, _implied},
   // 60
   {_neg, _indexed},
+#ifdef H6309
+  {_oim, _indexed},
+  {_aim, _indexed},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_com, _indexed},
   {_lsr, _indexed},
+#ifdef H6309
+  {_eim, _indexed},
+#else
   {_undoc, _illegal},
+#endif
   {_ror, _indexed},
   {_asr, _indexed},
   {_asl, _indexed},
   {_rol, _indexed},
   {_dec, _indexed},
+#ifdef H6309
+  {_tim, _indexed},
+#else
   {_undoc, _illegal},
+#endif
   {_inc, _indexed},
   {_tst, _indexed},
   {_jmp, _indexed},
   {_clr, _indexed},
   // 70
   {_neg, _extended},
+#ifdef H6309
+  {_oim, _extended},
+  {_aim, _extended},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_com, _extended},
   {_lsr, _extended},
+#ifdef H6309
+  {_eim, _extended},
+#else
   {_undoc, _illegal},
+#endif
   {_ror, _extended},
   {_asr, _extended},
   {_asl, _extended},
   {_rol, _extended},
   {_dec, _extended},
+#ifdef H6309
+  {_tim, _extended},
+#else
   {_undoc, _illegal},
+#endif
   {_inc, _extended},
   {_tst, _extended},
   {_jmp, _extended},
@@ -450,10 +485,17 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_pshsw, _implied},
+  {_pulsw, _implied},
+  {_pshuw, _implied},
+  {_puluw, _implied},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},

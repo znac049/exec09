@@ -929,43 +929,6 @@ static unsigned neg (int arg)
   return res;
 }
 
-#ifdef H6309
-static unsigned oim (unsigned arg, unsigned val)
-{
-  unsigned res = arg | val;
-
-  N = (res & 0x80);
-  Z = (res == 0);
-  OV = 0;
-
-  return res;
-}
-
-static unsigned aim (unsigned arg, unsigned val)
-{
-  unsigned res = arg & val;
-
-  N = (res & 0x80);
-  Z = (res == 0);
-  OV = 0;
-
-  return res;
-}
-
-static unsigned eim (unsigned arg, unsigned val)
-{
-  unsigned res = arg ^ val;
-
-  N = (res & 0x80);
-  Z = (res == 0);
-  OV = 0;
-  cpu_clk -= 2;
-
-  return res;
-}
-
-#endif
-
 static unsigned or (unsigned arg, unsigned val)
 {
   unsigned res = arg | val;
@@ -1129,6 +1092,20 @@ static void sex (void)
   A = res;
   cpu_clk -= 2;
 }
+
+#ifdef H6309
+static void sexw (void)
+{
+  unsigned res = F;
+
+  Z = res;
+  N = res &= 0x80;
+  if (res != 0)
+    res = 0xff;
+  E = res;
+  cpu_clk -= 2;
+}
+#endif
 
 static void std (void)
 {
@@ -1723,6 +1700,52 @@ static void ldw(unsigned arg)
   OV = 0;
 }
 
+static void tim(unsigned val, unsigned ea)
+{
+  unsigned res = val & RDMEM(ea);
+
+  Z = (res == 0);
+  N = res >> 8;
+
+  OV = 0;
+}
+
+static void oim(unsigned val, unsigned ea)
+{
+  unsigned res = val | RDMEM(ea);
+
+  WRMEM(ea, res);
+
+  Z = (res == 0);
+  N = res >> 8;
+
+  OV = 0;
+}
+
+static void aim(unsigned val, unsigned ea)
+{
+  unsigned res = val & RDMEM(ea);
+
+  WRMEM(ea, res);
+
+  Z = (res == 0);
+  N = res >> 8;
+
+  OV = 0;
+}
+
+static void eim(unsigned val, unsigned ea)
+{
+  unsigned res = val ^ RDMEM(ea);
+
+  WRMEM(ea, res);
+
+  Z = (res == 0);
+  N = res >> 8;
+
+  OV = 0;
+}
+
 #endif
 
 /* Execute 6809 code for a certain number of cycles. */
@@ -1768,7 +1791,7 @@ int cpu_execute (int cycles)
 	    unsigned immval = imm_byte();
 	    direct();
 	    cpu_clk -= 4;
-	    WRMEM(ea, oim(RDMEM(ea), immval));
+	    oim(immval, ea);
 	  }
 	  break;
 	case 0x02:		/* AIM */
@@ -1776,7 +1799,7 @@ int cpu_execute (int cycles)
 	    unsigned immval = imm_byte();
 	    direct();
 	    cpu_clk -= 4;
-	    WRMEM(ea, aim(RDMEM(ea), immval));
+	    aim(immval, ea);
 	  }
 	  break;
 #endif
@@ -1796,7 +1819,7 @@ int cpu_execute (int cycles)
 	    unsigned immval = imm_byte();
 	    direct();
 	    cpu_clk -= 4;
-	    WRMEM(ea, eim(RDMEM(ea),immval));
+	    eim(immval, ea);
 	  }
 	  break;
 #endif
@@ -1827,6 +1850,12 @@ int cpu_execute (int cycles)
 	  break;		/* DEC direct */
 #ifdef H6309
 	case 0x0B:		/* TIM */
+	  {
+	    unsigned immval = imm_byte();
+	    direct();
+	    cpu_clk -= 4;
+	    tim(immval, ea);
+	  }
 	  break;
 #endif
 	case 0x0c:
@@ -1923,12 +1952,32 @@ int cpu_execute (int cycles)
 	      case 0x37:	/* CMPR */
 		break;
 	      case 0x38:	/* PSHSW */
+		cpu_clk -= 6;
+		S = (S - 1) & 0xffff;
+		write_stack(S, F);
+		S = (S - 1) & 0xffff;
+		write_stack(S, E);
 		break;
 	      case 0x39:	/* PULSW */
+		cpu_clk -= 6;
+		E = read_stack(S);
+		S = (S + 1) & 0xffff;
+		F = read_stack(S);
+		S = (S + 1) & 0xffff;
 		break;
 	      case 0x3a:	/* PSHUW */
+		cpu_clk -= 6;
+		U = (U - 1) & 0xffff;
+		write_stack(U, F);
+		U = (U - 1) & 0xffff;
+		write_stack(U, E);
 		break;
 	      case 0x3b:	/* PULUW */
+		cpu_clk -= 6;
+		E = read_stack(U);
+		U = (U + 1) & 0xffff;
+		F = read_stack(U);
+		U = (U + 1) & 0xffff;
 		break;
 #endif
 	      case 0x3f:
@@ -2516,6 +2565,7 @@ int cpu_execute (int cycles)
 	  break;
 #ifdef H6309
 	case 0x14:		/* SEXW */
+	  sexw();
 	  break;
 #endif
 	case 0x16:
@@ -2714,8 +2764,20 @@ int cpu_execute (int cycles)
 	  break;		/* NEG indexed */
 #ifdef H6309
 	case 0x61:		/* OIM indexed */
+	  {
+	    unsigned immval = imm_byte();
+	    indexed();
+	    cpu_clk -= 5;
+	    oim(immval, ea);
+	  }
 	  break;
 	case 0x62:		/* AIM indexed */
+	  {
+	    unsigned immval = imm_byte();
+	    indexed();
+	    cpu_clk -= 5;
+	    aim(immval, ea);
+	  }
 	  break;
 #endif
 	case 0x63:
@@ -2728,6 +2790,12 @@ int cpu_execute (int cycles)
 	  break;		/* LSR indexed */
 #ifdef H6309
 	case 0x65:		/* EIM indexed */
+	  {
+	    unsigned immval = imm_byte();
+	    indexed();
+	    cpu_clk -= 4;
+	    eim(immval, ea);
+	  }
 	  break;
 #endif
 	case 0x66:
@@ -2752,6 +2820,12 @@ int cpu_execute (int cycles)
 	  break;		/* DEC indexed */
 #ifdef H6309
 	case 0x6b:		/* TIM indexed */
+	  {
+	    unsigned immval = imm_byte();
+	    tim(immval, ea);
+	    cpu_clk -= 4;
+	    eim(immval, ea);
+	  }
 	  break;
 #endif
 	case 0x6c:
@@ -2780,8 +2854,20 @@ int cpu_execute (int cycles)
 	  break;		/* NEG extended */
 #ifdef H6309
 	case 0x71:		/* OIM extended */
+	  {
+	    unsigned immval = imm_byte();
+	    extended();
+	    cpu_clk -= 4;
+	    oim(immval, ea);
+	  }
 	  break;
 	case 0x72:		/* AIM extended */
+	  {
+	    unsigned immval = imm_byte();
+	    extended();
+	    cpu_clk -= 4;
+	    aim(immval, ea);
+	  }
 	  break;
 #endif
 	case 0x73:
@@ -2796,6 +2882,12 @@ int cpu_execute (int cycles)
 	  break;		/* LSR extended */
 #ifdef H6309
 	case 0x75:		/* EIM extended */
+	  {
+	    unsigned immval = imm_byte();
+	    extended();
+	    cpu_clk -= 4;
+	    eim(immval, ea);
+	  }
 	  break;
 #endif
 	case 0x76:
@@ -2825,6 +2917,12 @@ int cpu_execute (int cycles)
 	  break;		/* DEC extended */
 #ifdef H6309
 	case 0x7b:		/* TIM indexed */
+	  {
+	    unsigned immval = imm_byte();
+	    extended();
+	    cpu_clk -= 4;
+	    tim(immval, ea);
+	  }
 	  break;
 #endif
 	case 0x7c:
