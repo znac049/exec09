@@ -126,6 +126,10 @@ extern int dasm (char *, absolute_address_t);
 
 extern int load_image (const char *);
 
+/* debug.c */
+extern void set_debug(int level, const char *file);
+extern void debugf(int level, const char *fmt, ...);
+
 #define MAX_STRINGSPACE 32000
 #define MAX_SYMBOL_HASH 1009
 

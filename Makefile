@@ -1,6 +1,7 @@
 SRCS=6809.c cfdisk.c command.c disk.c eon.c fileio.c gtron.c \
 	imux.c ioexpand.c machine.c main.c mc6850.c miscsbc.c \
-	mmu.c monitor.c serial.c symtab.c timer.c wpc.c wpclib.c
+	mmu.c monitor.c serial.c symtab.c timer.c wpc.c wpclib.c \
+	debug.c
 
 CFLAGS=-DHAVE_READLINE -DHAVE_TERMIOS -DH6309
 LDFLAGS=

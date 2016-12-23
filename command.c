@@ -592,7 +592,7 @@ void display_print (void)
 
 int print_insn (absolute_address_t addr)
 {
-   char buf[64];
+   char buf[128];
    int size = dasm (buf, addr);
    printf ("%s", buf);
    return size;
@@ -923,6 +923,8 @@ void cmd_step (void)
       auto_break_insn_count = 1;
 
    exit_command_loop = 0;
+
+   debugf(55, "Exit cmd_step(), PC=$%04X, count=%d\n", get_pc(), auto_break_insn_count);
 }
 
 void cmd_next (void)
@@ -1350,7 +1352,7 @@ command_handler_t command_lookup (const char *cmd)
 
 int print_insn_long (absolute_address_t addr)
 {
-   char buf[64];
+   char buf[128];
    int i;
    int size = dasm(buf, addr);
 
@@ -1435,6 +1437,7 @@ int command_exec (FILE *infile)
       return 0;
    }
 
+   debugf(55, "Calling command handler. PC=$%04X\n", get_pc());
    (*handler) ();
    return 0;
 }
@@ -1504,6 +1507,7 @@ int command_loop (void)
    exit_command_loop = -1;
    while (exit_command_loop < 0)
    {
+      debugf(55, "command_loop(): PC=$%04X\n", get_pc());
       if (command_exec (command_input) < 0)
          break;
    }

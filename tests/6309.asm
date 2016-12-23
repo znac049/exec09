@@ -5,6 +5,24 @@ fred	rmb	1
 	org	$e000
 
 Reset
+	; Manipulate D
+	ldd	#-27
+	negd
+	
+	; Quad byte instructions
+	ldq	quad
+
+	leax	quad,pcr
+	ldq	4,x
+	
+	stq	>fred
+
+	ldq	<fred
+	stq	>fred+4
+
+	leax	fred,pcr
+	stq	8,x
+	
 	; Test OIM Direct
 	lda	#$42
 	sta	<fred
@@ -51,6 +69,9 @@ Reset
 
 done	bra	done
 
+quad	fqb	$deadface
+	fqb	$a5a55a5a
+	
 	
 	org	$fffe
 	fdb	Reset

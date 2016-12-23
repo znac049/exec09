@@ -92,6 +92,7 @@ void release_firq (unsigned int source)
 static inline void check_pc (void)
 {
 	/* TODO */
+  debugf(50, "check_pc(): PC=$%04x\n", PC);
 }
 
 static inline void check_stack (void)
@@ -176,6 +177,7 @@ static inline void change_pc (unsigned newPC)
                           why have I not seen this problem before? Did I introduce this
                           bug as a side-effect of another change?
                        */
+  debugf(5, "PC->$%04X\n", PC);
 }
 
 static inline unsigned imm_byte (void)
@@ -1104,6 +1106,18 @@ static unsigned ld16 (unsigned arg)
   return res;
 }
 
+#ifdef H6309
+static void ldq (unsigned hi, unsigned lo)
+{
+  Z = hi | lo;
+  A = N = hi >> 8;
+  B = hi & 0xff;
+  E = lo >> 8;
+  F = lo & 0xff;
+  OV = 0;
+}
+#endif
+
 static void sex (void)
 {
   unsigned res = B;
@@ -1135,6 +1149,20 @@ static void st16 (unsigned arg)
   OV = 0;
   WRMEM16 (ea, res);
 }
+
+#ifdef H6309
+static void stq(void)
+{
+  unsigned hi = (A << 8) | B;
+  unsigned lo = (E << 8) | F;
+
+  Z = hi | lo;
+  N = A;
+  OV = 0;
+  WRMEM16(ea, hi);
+  WRMEM16(ea+2, lo);
+}
+#endif
 
 static void subd (unsigned val)
 {
@@ -1702,20 +1730,30 @@ int cpu_execute (int cycles)
 {
   unsigned opcode;
 
+  debugf(50, "in cpu_execute() - PC=$%04X\n", PC);
+
   cpu_period = cpu_clk = cycles;
 
   do
     {
+      debugf(5, "Pre PC: $%04X, OP: $%02X\n", PC, opcode);
+
       command_insn_hook ();
       if (check_break () != 0)
 	monitor_on = 1;
       
+      debugf(5, "Mid PC: $%04X, OP: $%02X\n", PC, opcode);
+
       if (monitor_on != 0)
 	if (monitor6809 () != 0)
 	  goto cpu_exit;
 
+      debugf(5, "Post Mid PC: $%04X, OP: $%02X\n", PC, opcode);
+
       iPC = PC;
       opcode = imm_byte ();
+
+      debugf(5, "Post PC: $%04X, OP: $%02X\n", PC, opcode);
 
       switch (opcode)
 	{
@@ -1816,6 +1854,7 @@ int cpu_execute (int cycles)
 	case 0x10:
 	  {
 	    opcode = imm_byte ();
+	    debugf(5, ", OP: $%02X", opcode);
 
 	    switch (opcode)
 	      {
@@ -1897,6 +1936,20 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0x40:	/* NEGD */
+		{
+		  int val = (A<<8) | B;
+		  
+		  val = -val;
+
+		  C = val;
+		  N = (val <0);
+		  Z = (val == 0);
+		  OV = (val == 32768);
+
+		  A = (val >> 8) & 0xff;
+		  B = val & 0xff;
+		  cpu_clk -= 2;
+		}
 		break;
 	      case 0x43:	/* COMD */
 		break;
@@ -2121,8 +2174,14 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0xdc:	/* LDQ */
+		direct();
+		cpu_clk -= 7;
+		ldq(RDMEM16(ea), RDMEM16(ea+2));
 		break;
 	      case 0xdd:	/* STQ */
+		direct();
+		cpu_clk -= 7;
+		stq();
 		break;
 #endif
 	      case 0xde:
@@ -2137,8 +2196,14 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0xec:	/* LDQ */
+		cpu_clk -= 8;
+		indexed();
+		ldq(RDMEM16(ea), RDMEM16(ea+2));
 		break;
 	      case 0xed:	/* STQ */
+		cpu_clk -= 8;
+		indexed();
+		stq();
 		break;
 #endif
 	      case 0xee:
@@ -2153,8 +2218,14 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0xfc:	/* LDQ */
+		extended();
+		cpu_clk -= 8;
+		ldq(RDMEM16(ea), RDMEM16(ea+2));
 		break;
 	      case 0xfd:	/* STQ */
+		extended();
+		cpu_clk -= 8;
+		stq();
 		break;
 #endif
 	      case 0xfe:
@@ -2177,6 +2248,7 @@ int cpu_execute (int cycles)
 	case 0x11:
 	  {
 	    opcode = imm_byte ();
+	    debugf(5, ", OP: $%02X", opcode);
 
 	    switch (opcode)
 	      {
@@ -3361,8 +3433,9 @@ int cpu_execute (int cycles)
 	  break;
 	}
 
-	if (cc_changed)
-	  cc_modified ();
+      debugf(5, "\n");
+      if (cc_changed)
+	cc_modified ();
     }
   while (cpu_clk > 0);
 
