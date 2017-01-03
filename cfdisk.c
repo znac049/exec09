@@ -57,6 +57,15 @@
 #define CMD_SET_MULTIPLE_MODE 0xc6
 #define CMD_EXECUTE_DEVICE_DIAGNOSTIC 0x90
 
+#define SR_BUSY 0x80
+#define SR_DRDY 0x40
+#define SR_DF   0x20
+#define SR_DSC  0x10
+#define SR_DRQ  0x08
+#define SR_CORR 0x04
+#define SR_IDX  0x02
+#define SR_ERR  0x01
+
 /* Emulate an IDE Compact Flash card or cards.
    */
 
@@ -77,7 +86,9 @@ struct cf_disk
   FILE *fd;
   long lsn;
   int count;
+  int index;
   long max_lsn;
+  U8 data[BYTES_PER_SECTOR];
 };
 
 struct cf_controller
@@ -87,19 +98,33 @@ struct cf_controller
   U8 status_reg;
   U8 error_reg;
   U8 features_reg;
-  U8 data[BYTES_PER_SECTOR];
+  U8 eight_bit_mode;
+  short int disk_id;
 };
 
+static struct pathlist cf_path;
 static int controllerId = 0;
+
+void cf_status(struct cf_controller *controller, struct cf_disk *disk) {
+  debugf(20, "ID=%d: LSN: %ld, INDEX:COUNT: %d:%d, MAXLSN: %ld\n", controller->disk_id, disk->lsn, disk->index, disk->count, disk->max_lsn);
+}
 
 U8 compact_flash_read (struct hw_device *dev, unsigned long addr)
 {
   struct cf_controller *controller = dev->priv;
-  struct cf_disk *disk = &controller->disk[0];
+  struct cf_disk *disk = &controller->disk[controller->disk_id];
   int retval;
 
   switch (addr) {
   case CF_DATA_REG:
+    if (disk->count) {
+      disk->count--;
+      retval = disk->data[disk->index];
+      disk->index++;
+      if (disk->count == 0) {
+	controller->status_reg &= ~SR_DRQ;
+      }
+    }
     break;
 
   case CF_ERROR_REG:
@@ -123,7 +148,7 @@ U8 compact_flash_read (struct hw_device *dev, unsigned long addr)
     break;
 
   case CF_LSN3_REG:
-    retval = (int)((disk->lsn >> 24) & 0xff);
+    retval = (int)(((disk->lsn >> 24) & 0xff) | 0xe0000000);
     break;
 
   case CF_STATUS_REG:
@@ -134,10 +159,20 @@ U8 compact_flash_read (struct hw_device *dev, unsigned long addr)
   return retval;
 }
 
+void do_read(struct cf_controller *controller, struct cf_disk *disk)
+{
+}
+
+void do_write(struct cf_controller *controller, struct cf_disk *disk)
+{
+}
+
 void exec_features_command(struct cf_controller *controller, struct cf_disk *disk, U8 cmd)
 {
-  switch (cmd) {
+  switch (controller->features_reg) {
   case 0x01: /* Enable 8-bit  data transfers */
+    controller->eight_bit_mode = 1;
+    debugf(20, "Enable 8-bit transfers\n");
     break;
 
   case 0x02: /* Enable write cache */
@@ -165,6 +200,8 @@ void exec_features_command(struct cf_controller *controller, struct cf_disk *dis
     break;
 
   case 0x81: /* Disable 8-bit data transfers */
+    controller->eight_bit_mode = 0;
+    debugf(20, "Disable 8-bit transfers\n");
     break;
 
   case 0x82: /* Disable write cache */
@@ -193,10 +230,35 @@ void exec_features_command(struct cf_controller *controller, struct cf_disk *dis
   }
 }
 
+void set_device_info(struct cf_disk *disk)
+{
+  U16 *words = (U16 *)disk->data;
+ 
+  bzero(disk->data, BYTES_PER_SECTOR);
+
+  words[0] = 0x0080; // Removable media
+  words[1] = 99; // logical cylinders
+  words[3] = 42; // logical heads
+
+  strcpy((char *)&words[10], "00000000000000000042");
+
+  words[22] = 0;
+
+  strcpy((char *)&words[23], "FW:0001a");
+  strcpy((char *)&words[27], "CF-Bob MK I");
+
+  words[49] = 99;
+
+  disk->count = 256;
+  disk->index = 0;
+}
+
 void compact_flash_write (struct hw_device *dev, unsigned long addr, U8 val)
 {
   struct cf_controller *controller = dev->priv;
-  struct cf_disk *disk = &controller->disk[0];
+  struct cf_disk *disk = &controller->disk[controller->disk_id];
+
+  debugf(20, "CF_write() addr=$%04lx, val=$%02x\n", addr, val);
 
   switch (addr) {
   case CF_DATA_REG:
@@ -222,11 +284,18 @@ void compact_flash_write (struct hw_device *dev, unsigned long addr, U8 val)
     break;
 
   case CF_LSN3_REG:
-    disk->lsn = (disk->lsn & 0x00ffffff) | (long)(val<<24);
+    // This may change the currently selected disk
+    controller->disk_id = (val & 0x10);
+    *disk = controller->disk[controller->disk_id];
+    disk->lsn = (disk->lsn & 0x00ffffff) | (long)((val & 0x0f) <<24);
     break;
 
   case CF_COMMAND_REG:
     switch(val) {
+    case CMD_IDENTIFY_DEVICE:
+      set_device_info(disk);
+      break;
+
     case CMD_EXECUTE_DEVICE_DIAGNOSTIC:
       {
 	U8 code = 0;
@@ -244,14 +313,18 @@ void compact_flash_write (struct hw_device *dev, unsigned long addr, U8 val)
 
     case CMD_WRITELONG:
     case CMD_WRITELONG_RETRY:
+      do_write(controller, disk);
       break;
 
     case CMD_READLONG:
     case CMD_READLONG_RETRY:
+      do_read(controller, disk);
       break;
     }
     break;
   }
+
+  cf_status(controller, disk);
 }
 
 void compact_flash_reset (struct hw_device *dev)
@@ -279,10 +352,11 @@ void connect_to_disk_file(struct cf_controller *cfdev, int diskNum)
   sprintf(name, "cfdisk%d-%d.dsk", cfdev->controllerId, diskNum);
 
   //printf("DISK: %s\n", name);
-  disk->fd = file_open(NULL, name, "r");
+  disk->fd = file_open(&cf_path, name, "r");
 
   disk->name = strdup(file_get_fqname());
   disk->lsn = disk->max_lsn = 0L;
+  disk->count = disk->index = 0;
 
   if (disk->fd) {
     long endpos;
@@ -302,11 +376,27 @@ struct hw_device* compact_flash_create (void)
 {
   struct cf_controller *cfdev = malloc (sizeof (struct cf_controller));
 
+  if (controllerId == 0) {
+    char *cf = getenv("CFDIR");
+    
+    path_init(&cf_path);
+
+    if (cf != NULL) {
+      path_add(&cf_path, cf);
+    }
+
+    path_add(&cf_path, "Images");
+  }
+
   connect_to_disk_file(cfdev, 0);
   connect_to_disk_file(cfdev, 1);
 
   cfdev->controllerId = controllerId;
   controllerId++;
+
+  cfdev->disk_id = 0;
+  cfdev->eight_bit_mode = 0;
+  cfdev->status_reg = SR_DRDY | SR_DSC | SR_DRQ;
 
   return device_attach (&compact_flash_class, 4, cfdev);
 }

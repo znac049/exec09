@@ -42,7 +42,7 @@ enum addr_mode
   _illegal, _implied, _imm_byte, _imm_word, _direct, _extended,
   _indexed, _rel_byte, _rel_word, _reg_post, _sys_post, _usr_post,
 #ifdef H6309
-  _imm_direct, _reg_reg
+  _imm_direct, _imm_quad, _reg_reg
 #endif
 };
 
@@ -67,7 +67,8 @@ enum opcode
   _negd, _comd, _lsrd, _rord, _asrd, _rold, _decd, _incd, _tstd,
   _clrd, _oim, _aim, _eim, _addr, _lde, _ldf, _ldw, _dece, _ince, 
   _tste, _clre, _decf, _incf, _tstf, _clrf, _come, _comf, 
-  _ldq, _stq, _sexw, _tim, _pshsw, _pshuw, _pulsw, _puluw
+  _ldq, _stq, _sexw, _tim, _pshsw, _pshuw, _pulsw, _puluw,
+  _ste, _stf
 #endif
 };
 
@@ -92,7 +93,7 @@ char *mne[] = {
   "INCD", "TSTD", "CLRD", "OIM", "AIM", "EIM", "ADDR", "LDE", "LDF", 
   "LDW", "DECE", "INCE", "TSTE", "CLRE", "DECF", "INCF", "TSTF", "CLRF",
   "COME", "COMF", "LDQ", "STQ", "SEXW", "TIM", "PSHSW", "PSHUW", "PULSW",
-  "PULUW"
+  "PULUW", "STE", "STF"
 #endif
 };
 
@@ -364,7 +365,11 @@ opcode_t codes[256] = {
   {_orb, _imm_byte},
   {_addb, _imm_byte},
   {_ldd, _imm_word},
+#ifdef H6309
+  {_ldq, _imm_quad},
+#else
   {_undoc, _illegal},
+#endif
   {_ldu, _imm_word},
   {_undoc, _illegal},
   // D0
@@ -951,10 +956,11 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
 #ifdef H6309
   {_lde, _indexed},
+  {_ste, _indexed},
 #else
   {_undoc, _illegal},
-#endif
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -1035,10 +1041,11 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
 #ifdef H6309
   {_ldf, _indexed},
+  {_stf, _indexed},
 #else
   {_undoc, _illegal},
-#endif
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -1148,7 +1155,13 @@ int dasm (char *buf, absolute_address_t opc)
       {
 	unsigned immval = fetch8();
 	const char *ea = monitor_addr_name(fetch8());
-	sprintf (buf, "#$%02x,<%s", immval, ea);
+	sprintf(buf, "#$%02x,<%s", immval, ea);
+      }
+      break;
+    case _imm_quad:
+      {
+	unsigned immval = fetch32();
+	sprintf(buf, "#$%08x", immval);
       }
       break;
     case _reg_reg:

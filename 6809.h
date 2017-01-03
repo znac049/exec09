@@ -71,9 +71,11 @@ long get_elapsed_realtime (void);
 /* Fetch macros */
 
 #define abs_read16(addr)   ((abs_read8(addr) << 8) | abs_read8(addr+1))
+#define abs_read32(addr)   ((abs_read8(addr) << 24) | (abs_read8(addr+1) << 16) | (abs_read8(addr+2) << 8) | abs_read8(addr+3))
 
 #define fetch8()           abs_read8 (pc++)
 #define fetch16()          (pc += 2, abs_read16(pc-2))
+#define fetch32()          (pc += 4, abs_read32(pc-4))
 
 /* 6809.c */
 extern int cpu_quit;

@@ -367,7 +367,7 @@ main (int argc, char *argv[])
   int argn = 1;
   unsigned int loops = 0;
 
-  set_debug(99, "debug.log");
+  set_debug(42, "debug.log");
   debugf(1, "6x09 emulator starting up.\n");
 
   gettimeofday (&time_started, NULL);

@@ -6,9 +6,13 @@
 
 # Disk images
 *.dsk
+Images/*.dsk
 
 # Lwasm intermediate files
-tests/*.bin
-tests/*.map
-tests/*.lst
-tests/*.srec
+*.bin
+*.map
+*.lst
+*.srec
+
+#  log files
+*.log

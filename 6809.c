@@ -177,7 +177,7 @@ static inline void change_pc (unsigned newPC)
                           why have I not seen this problem before? Did I introduce this
                           bug as a side-effect of another change?
                        */
-  debugf(5, "PC->$%04X\n", PC);
+  debugf(50, "PC->$%04X\n", PC);
 }
 
 static inline unsigned imm_byte (void)
@@ -1759,24 +1759,24 @@ int cpu_execute (int cycles)
 
   do
     {
-      debugf(5, "Pre PC: $%04X, OP: $%02X\n", PC, opcode);
+      debugf(50, "Pre PC: $%04X, OP: $%02X\n", PC, opcode);
 
       command_insn_hook ();
       if (check_break () != 0)
 	monitor_on = 1;
       
-      debugf(5, "Mid PC: $%04X, OP: $%02X\n", PC, opcode);
+      debugf(50, "Mid PC: $%04X, OP: $%02X\n", PC, opcode);
 
       if (monitor_on != 0)
 	if (monitor6809 () != 0)
 	  goto cpu_exit;
 
-      debugf(5, "Post Mid PC: $%04X, OP: $%02X\n", PC, opcode);
+      debugf(50, "Post Mid PC: $%04X, OP: $%02X\n", PC, opcode);
 
       iPC = PC;
       opcode = imm_byte ();
 
-      debugf(5, "Post PC: $%04X, OP: $%02X\n", PC, opcode);
+      debugf(50, "Post PC: $%04X, OP: $%02X\n", PC, opcode);
 
       switch (opcode)
 	{
@@ -1883,7 +1883,7 @@ int cpu_execute (int cycles)
 	case 0x10:
 	  {
 	    opcode = imm_byte ();
-	    debugf(5, ", OP: $%02X", opcode);
+	    debugf(50, ", OP: $%02X", opcode);
 
 	    switch (opcode)
 	      {
@@ -2297,7 +2297,7 @@ int cpu_execute (int cycles)
 	case 0x11:
 	  {
 	    opcode = imm_byte ();
-	    debugf(5, ", OP: $%02X", opcode);
+	    debugf(50, ", OP: $%02X", opcode);
 
 	    switch (opcode)
 	      {
@@ -3287,6 +3287,8 @@ int cpu_execute (int cycles)
 	  break;
 #ifdef H6309
 	case 0xcd:		/* LDQ immed */
+	  cpu_clk -= 5;
+	  ldq(imm_word(), imm_word());
 	  break;
 #endif
 	case 0xce:
@@ -3531,7 +3533,7 @@ int cpu_execute (int cycles)
 	  break;
 	}
 
-      debugf(5, "\n");
+      debugf(50, "\n");
       if (cc_changed)
 	cc_modified ();
     }
