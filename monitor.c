@@ -68,7 +68,9 @@ enum opcode
   _clrd, _oim, _aim, _eim, _addr, _lde, _ldf, _ldw, _dece, _ince, 
   _tste, _clre, _decf, _incf, _tstf, _clrf, _come, _comf, 
   _ldq, _stq, _sexw, _tim, _pshsw, _pshuw, _pulsw, _puluw,
-  _ste, _stf
+  _ste, _stf, _adcr, _subr, _sbcr, _andr, _orr, _eorr, _cmpr,
+  _asld, _comw, _lsrw, _rorw, _rolw, _decw, _incw, _tstw, _clrw,
+  _subw, _cmpw, _sbcd, _andd, _bitd, _eord, _adcd, _ord, _addw
 #endif
 };
 
@@ -93,7 +95,10 @@ char *mne[] = {
   "INCD", "TSTD", "CLRD", "OIM", "AIM", "EIM", "ADDR", "LDE", "LDF", 
   "LDW", "DECE", "INCE", "TSTE", "CLRE", "DECF", "INCF", "TSTF", "CLRF",
   "COME", "COMF", "LDQ", "STQ", "SEXW", "TIM", "PSHSW", "PSHUW", "PULSW",
-  "PULUW", "STE", "STF"
+  "PULUW", "STE", "STF", "ADCR", "SUBR", "SBCR", "ANDR", "ORR", "EORR",
+  "CMPR", "ASLD", "COMW", "LSRW", "RORW", "ROLW", "DECW", "INCW", "TSTW",
+  "CLRW", "SUBW", "CMPW", "SBCD", "ANDD", "BITD", "EORD", "ADCD", "ORD",
+  "ADDW"
 #endif
 };
 
@@ -480,16 +485,23 @@ opcode_t codes10[256] = {
   // 30
 #ifdef H6309
   {_addr, _reg_reg},
+  {_adcr, _reg_reg},
+  {_subr, _reg_reg},
+  {_sbcr, _reg_reg},
+  {_andr, _reg_reg},
+  {_orr, _reg_reg},
+  {_eorr, _reg_reg},
+  {_cmpr, _reg_reg},
 #else
   {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
 #endif
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
 #ifdef H6309
   {_pshsw, _implied},
   {_pulsw, _implied},
@@ -513,23 +525,65 @@ opcode_t codes10[256] = {
 #endif
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_comd, _implied},
+  {_lsrd, _implied},
+#else
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+#endif
+  {_undoc, _illegal},
+#ifdef H6309
+  {_rord, _implied},
+  {_asrd, _implied},
+  {_asld, _implied},
+  {_rold, _implied},
+  {_decd, _implied},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
+  {_undoc, _illegal},
+#ifdef H6309
+  {_incd, _implied},
+  {_tstd, _implied},
+  {_undoc, _illegal},
+  {_clrd, _implied},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
+#endif
   // 50
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#ifdef H6309
+  {_comw, _implied},
+  {_lsrw, _implied},
+  {_undoc, _illegal},
+  {_rorw, _implied},
+#else
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+#endif
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+#ifdef H6309
+  {_rolw, _implied},
+  {_decw, _implied},
+  {_undoc, _illegal},
+  {_incw, _implied},
+  {_tstw, _implied},
+  {_undoc, _illegal},
+  {_clrw, _implied},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -537,12 +591,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
+#endif
   // 60
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -578,22 +627,37 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   // 80
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
-  {_cmpd, _imm_word},
-  {_undoc, _illegal},
-  {_undoc, _illegal},
 #ifdef H6309
+  {_subw, _imm_word},
+  {_cmpw, _imm_word},
+  {_sbcd, _imm_word},
+#else
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
+#endif
+  {_cmpd, _imm_word},
+#ifdef H6309
+  {_andd, _imm_word},
+  {_bitd, _imm_word},
   {_ldw, _imm_word},
 #else
   {_undoc, _illegal},
+  {_undoc, _illegal},
+  {_undoc, _illegal},
 #endif
   {_undoc, _illegal},
+#ifdef H6309
+  {_eord, _imm_word},
+  {_adcd, _imm_word},
+  {_ord, _imm_word},
+  {_addw, _imm_word},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_cmpy, _imm_word},
   {_undoc, _illegal},
   {_ldy, _imm_word},
@@ -935,10 +999,11 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
 #ifdef H6309
   {_lde, _direct},
+  {_ste, _direct},
 #else
   {_undoc, _illegal},
-#endif
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -978,10 +1043,11 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
 #ifdef H6309
   {_lde, _extended},
+  {_ste, _extended},
 #else
   {_undoc, _illegal},
-#endif
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -1063,10 +1129,11 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
 #ifdef H6309
   {_ldf, _extended},
+  {_stf, _extended},
 #else
   {_undoc, _illegal},
-#endif
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},

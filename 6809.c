@@ -177,7 +177,6 @@ static inline void change_pc (unsigned newPC)
                           why have I not seen this problem before? Did I introduce this
                           bug as a side-effect of another change?
                        */
-  debugf(50, "PC->$%04X\n", PC);
 }
 
 static inline unsigned imm_byte (void)
@@ -734,6 +733,20 @@ static unsigned adc (unsigned arg, unsigned val)
   return res;
 }
 
+#ifdef H6309
+static unsigned adc16(unsigned arg, unsigned val)
+{
+  unsigned res = arg + val + (C != 0);
+
+  C = res & 0x10000;
+  Z = res &= 0xffff;
+  N = (res & 0x8000);
+  OV = H = arg ^ val ^ res ^ C;
+
+  return res;
+}
+#endif
+
 static unsigned add (unsigned arg, unsigned val)
 {
   unsigned res = arg + val;
@@ -745,6 +758,20 @@ static unsigned add (unsigned arg, unsigned val)
   return res;
 }
 
+#ifdef H6309
+static unsigned add16(unsigned arg, unsigned val)
+{
+  unsigned res = arg + val;
+
+  C = res & 0x10000;
+  Z = res &= 0xffff;
+  N = (res & 0x8000);
+  OV = H = arg ^ val ^ res ^ C;
+
+  return res;
+}
+#endif
+
 static unsigned and (unsigned arg, unsigned val)
 {
   unsigned res = arg & val;
@@ -754,6 +781,19 @@ static unsigned and (unsigned arg, unsigned val)
 
   return res;
 }
+
+#ifdef H6309
+static unsigned and16(unsigned arg, unsigned val)
+{
+  unsigned res = arg & val;
+
+  Z = res;
+  N = (res & 0x8000);
+  OV = 0;
+
+  return res;
+}
+#endif
 
 static unsigned asl (unsigned arg)		/* same as lsl */
 {
@@ -767,6 +807,21 @@ static unsigned asl (unsigned arg)		/* same as lsl */
   return res;
 }
 
+#ifdef H6309
+static unsigned asl16 (unsigned arg)		/* same as lsl */
+{
+  unsigned res = arg << 1;
+
+  C = res & 0x10000;
+  Z = res &= 0xffff;
+  N = (res & 0x8000);
+  OV = arg ^ res;
+  cpu_clk -= 2;
+
+  return res;
+}
+#endif
+
 static unsigned asr (unsigned arg)
 {
   unsigned res = (INT8) arg;
@@ -778,6 +833,20 @@ static unsigned asr (unsigned arg)
   return res;
 }
 
+#ifdef H6309
+static unsigned asr16 (unsigned arg)
+{
+  unsigned res = arg;
+
+  C = res & 1;
+  Z = res = (res >> 1) & 0xffff;
+  N = (res & 0x8000);
+  cpu_clk -= 2;
+
+  return res;
+}
+#endif
+
 static void bit (unsigned arg, unsigned val)
 {
   unsigned res = arg & val;
@@ -785,6 +854,17 @@ static void bit (unsigned arg, unsigned val)
   N = Z = res;
   OV = 0;
 }
+
+#ifdef H6309
+static void bit16(unsigned arg, unsigned val)
+{
+  unsigned res = arg & val;
+
+  Z = res;
+  N = res & 0x8000;
+  OV = 0;
+}
+#endif
 
 static unsigned clr (unsigned arg)
 {
@@ -801,6 +881,16 @@ static void cmp (unsigned arg, unsigned val)
   C = res & 0x100;
   N = Z = res &= 0xff;
   OV = (arg ^ val) & (arg ^ res);
+}
+
+static void cmp16(unsigned arg, unsigned val)
+{
+  unsigned res = arg - val;
+
+  C = res & 0x10000;
+  Z = res &= 0xffff;
+  N = (res & 0x8000);
+  OV = ((arg ^ val) & (arg ^ res)) >> 8;
 }
 
 static unsigned com (unsigned arg)
@@ -846,11 +936,26 @@ static unsigned dec (unsigned arg)
   return res;
 }
 
-unsigned eor (unsigned arg, unsigned val)
+#ifdef H6309
+static unsigned dec16 (unsigned arg)
+{
+  unsigned res = (arg - 1) & 0xffff;
+
+  Z = res;
+  N = (res & 0x8000);
+  OV = arg & ~res;
+  cpu_clk -= 2;
+
+  return res;
+}
+#endif
+
+unsigned eor(unsigned arg, unsigned val)
 {
   unsigned res = arg ^ val;
 
-  N = Z = res;
+  Z = res;
+  N = (res & 0x8000);
   OV = 0;
 
   return res;
@@ -884,6 +989,20 @@ static unsigned inc (unsigned arg)
 
   return res;
 }
+
+#ifdef H6309
+static unsigned inc16 (unsigned arg)
+{
+  unsigned res = (arg + 1) & 0xffff;
+
+  Z = res;
+  N = (res & 0x8000);
+  OV = ~arg & res;
+  cpu_clk -= 2;
+
+  return res;
+}
+#endif
 
 static unsigned ld (unsigned arg)
 {
@@ -929,6 +1048,47 @@ static unsigned neg (int arg)
   return res;
 }
 
+#ifdef H6309
+static unsigned neg16(unsigned val)
+{
+  OV = (val == 0x8000);
+
+  val = -val;
+  
+  C = val;
+  N = (val & 0x8000);
+  Z = (val == 0);
+
+  cpu_clk -= 2;
+
+  return val;
+}
+
+static unsigned com16(unsigned val)
+{
+  val = ~val;
+  
+  C = 1;
+  N = (val & 0x8000);
+  Z = (val == 0);
+  OV = 0;
+
+  cpu_clk -= 2;
+
+  return val;
+}
+
+static unsigned clr16(void)
+{
+  C = N = OV = 0;
+  Z = 1;
+
+  cpu_clk -= 2;
+
+  return 0;
+}
+#endif
+
 static unsigned or (unsigned arg, unsigned val)
 {
   unsigned res = arg | val;
@@ -964,6 +1124,35 @@ static unsigned ror (unsigned arg)
   return res;
 }
 
+#ifdef H6309
+static unsigned rol16 (unsigned arg)
+{
+  unsigned res = (arg << 1) + (C != 0);
+
+  C = res & 0x10000;
+  Z = res &= 0xffff;
+  N = (res & 0x8000);
+  OV = arg ^ res;
+  cpu_clk -= 2;
+
+  return res;
+}
+
+static unsigned ror16 (unsigned arg)
+{
+  unsigned res = arg;
+
+  if (C != 0)
+    res |= 0x10000;
+  C = res & 1;
+  Z = res >>= 1;
+  N = (res & 0x8000);
+  cpu_clk -= 2;
+
+  return res;
+}
+#endif
+
 static unsigned sbc (unsigned arg, unsigned val)
 {
   unsigned res = arg - val - (C != 0);
@@ -975,7 +1164,20 @@ static unsigned sbc (unsigned arg, unsigned val)
   return res;
 }
 
-static void st (unsigned arg)
+#ifdef H6309
+static unsigned sbc16(unsigned arg, unsigned val)
+{
+  unsigned res = arg - val - (C != 0);
+
+  C = res & 0x10000;
+  N = Z = res &= 0xffff;
+  OV = (arg ^ val) & (arg ^ res);
+
+  return res;
+}
+#endif
+
+static void st(unsigned arg)
 {
   unsigned res = arg;
 
@@ -996,6 +1198,18 @@ static unsigned sub (unsigned arg, unsigned val)
   return res;
 }
 
+static unsigned sub16(unsigned arg, unsigned val)
+{
+  unsigned res = arg - val;
+
+  C = res & 0x10000;
+  Z = res &= 0xffff;
+  N = (res & 0x8000);
+  OV = (arg ^ val) & (arg ^ res);
+
+  return res;
+}
+
 static void tst (unsigned arg)
 {
   unsigned res = arg;
@@ -1004,6 +1218,18 @@ static void tst (unsigned arg)
   OV = 0;
   cpu_clk -= 2;
 }
+
+#ifdef H6309
+static void tst16 (unsigned arg)
+{
+  unsigned res = arg;
+
+  Z = res;
+  N = (res & 0x8000);
+  OV = 0;
+  cpu_clk -= 2;
+}
+#endif
 
 static void tfr (void)
 {
@@ -1036,16 +1262,6 @@ static void addd (unsigned val)
   OV = ((arg ^ res) & (val ^ res)) >> 8;
   A = N = res >> 8;
   B = res & 0xff;
-}
-
-static void cmp16 (unsigned arg, unsigned val)
-{
-  unsigned res = arg - val;
-
-  C = res & 0x10000;
-  Z = res &= 0xffff;
-  N = res >> 8;
-  OV = ((arg ^ val) & (arg ^ res)) >> 8;
 }
 
 static void ldd (unsigned arg)
@@ -1140,18 +1356,6 @@ static void stq(void)
   WRMEM16(ea+2, lo);
 }
 #endif
-
-static void subd (unsigned val)
-{
-  unsigned arg = (A << 8) | B;
-  unsigned res = arg - val;
-
-  C = res & 0x10000;
-  Z = res &= 0xffff;
-  OV = ((arg ^ val) & (arg ^ res)) >> 8;
-  A = N = res >> 8;
-  B = res & 0xff;
-}
 
 /* stack instructions */
 
@@ -1382,6 +1586,45 @@ static void pulu (void)
       U = (U + 2) & 0xffff;
     }
 }
+
+#ifdef H6309
+static void pshsw (void)
+{
+  cpu_clk -= 6;
+  S = (S - 1) & 0xffff;
+  write_stack(S, F);
+  S = (S - 1) & 0xffff;
+  write_stack(S, E);
+}
+
+static void pulsw(void)
+{
+  cpu_clk -= 6;
+  E = read_stack(S);
+  S = (S + 1) & 0xffff;
+  F = read_stack(S);
+  S = (S + 1) & 0xffff;
+}
+
+static void pshuw(void)
+{
+  cpu_clk -= 6;
+  U = (U - 1) & 0xffff;
+  write_stack(U, F);
+  U = (U - 1) & 0xffff;
+  write_stack(U, E);
+}
+
+static void puluw(void)
+{
+  cpu_clk -= 6;
+  E = read_stack(U);
+  U = (U + 1) & 0xffff;
+  F = read_stack(U);
+  U = (U + 1) & 0xffff;
+}
+
+#endif
 
 /* Miscellaneous Instructions */
 
@@ -1681,13 +1924,267 @@ static void bsr (void)
 }
 
 #ifdef H6309
+static unsigned reg8to16(unsigned reg)
+{
+  switch (reg) {
+  case 8: // A
+  case 9: // B
+    reg = 0; // D
+    break;
+
+  case 14: // E
+  case 15: // F
+    reg = 6; // W
+    break;
+
+  default:
+    // TODO: Throw some kind of error as 8-bit reg has no 16-bit equivalent
+    break;
+  }
+
+  return reg;
+}
+
+static inline unsigned reg_size(unsigned reg)
+{
+  return (reg & 0x08)?8:16;
+}
+
 static void addr(void)
 {
   unsigned regs = read8(PC);
   unsigned r1 = ((regs & 0xf0) >> 4);
   unsigned r2 = regs & 0x0f;
+  unsigned r1val;
+  unsigned r2val;
+  unsigned res;
+  unsigned mask = 0x80;
 
-  PC++;
+  if ((reg_size(r2) == 16) && (reg_size(r1) == 8)) {
+    r1 = reg8to16(r1);
+
+    mask = 0x8000;
+  }
+
+  r1val = get_reg(r1);
+  r2val = get_reg(r2);
+
+  res = r1val + r2val;
+
+  C = (res >> 1) & mask;
+  N = Z = res &= mask;
+  OV = H = r1val ^ r2val ^ res ^ C;
+
+  set_reg(r2, res);
+  cpu_clk -= 4;
+}
+
+static void adcr(void)
+{
+  unsigned regs = read8(PC);
+  unsigned r1 = ((regs & 0xf0) >> 4);
+  unsigned r2 = regs & 0x0f;
+  unsigned r1val;
+  unsigned r2val;
+  unsigned res;
+  unsigned mask = 0x80;
+
+  if ((reg_size(r2) == 16) && (reg_size(r1) == 8)) {
+    r1 = reg8to16(r1);
+
+    mask = 0x8000;
+  }
+
+  r1val = get_reg(r1);
+  r2val = get_reg(r2);
+
+  res = r1val + r2val + (C != 0);
+
+  C = (res >> 1) & mask;
+  N = Z = res &= mask;
+  OV = H = r1val ^ r2val ^ res ^ C;
+
+  set_reg(r2, res);
+  cpu_clk -= 4;
+}
+
+static void subr(void)
+{
+  unsigned regs = read8(PC);
+  unsigned r1 = ((regs & 0xf0) >> 4);
+  unsigned r2 = regs & 0x0f;
+  unsigned r1val;
+  unsigned r2val;
+  unsigned res;
+  unsigned carry_mask = 0x100;
+  unsigned size_mask = 0xff;
+
+  if ((reg_size(r2) == 16) && (reg_size(r1) == 8)) {
+    r1 = reg8to16(r1);
+
+    carry_mask = 0x10000;
+    size_mask = 0xffff;
+  }
+
+  r1val = get_reg(r1);
+  r2val = get_reg(r2);
+
+  res = r2val - r1val;
+
+  C = res & carry_mask;
+  N = Z = res &= size_mask;
+  OV = H = (r1val ^ r2val) & (r1val ^ res);
+
+  set_reg(r2, res);
+  cpu_clk -= 4;
+}
+
+static void sbcr(void)
+{
+  unsigned regs = read8(PC);
+  unsigned r1 = ((regs & 0xf0) >> 4);
+  unsigned r2 = regs & 0x0f;
+  unsigned r1val;
+  unsigned r2val;
+  unsigned res;
+  unsigned carry_mask = 0x100;
+  unsigned size_mask = 0xff;
+
+  if ((reg_size(r2) == 16) && (reg_size(r1) == 8)) {
+    r1 = reg8to16(r1);
+
+    carry_mask = 0x8000;
+    size_mask = 0xffff;
+  }
+
+  r1val = get_reg(r1);
+  r2val = get_reg(r2);
+
+  res = r2val - r1val - (C != 0);
+
+  C = res & carry_mask;
+  N = Z = res &= size_mask;
+  OV = H = (r1val ^ r2val) & (r1val ^ res);
+
+  set_reg(r2, res);
+  cpu_clk -= 4;
+}
+
+static void andr(void)
+{
+  unsigned regs = read8(PC);
+  unsigned r1 = ((regs & 0xf0) >> 4);
+  unsigned r2 = regs & 0x0f;
+  unsigned r1val;
+  unsigned r2val;
+  unsigned res;
+  unsigned neg_mask = 0x80;
+
+  if ((reg_size(r2) == 16) && (reg_size(r1) == 8)) {
+    r1 = reg8to16(r1);
+
+    neg_mask = 0x8000;
+  }
+
+  r1val = get_reg(r1);
+  r2val = get_reg(r2);
+
+  res = r1val & r2val;
+
+  N = res & neg_mask;
+  Z = (res == 0);
+  OV = 0;
+
+  set_reg(r2, res);
+  cpu_clk -= 4;
+}
+
+static void orr(void)
+{
+  unsigned regs = read8(PC);
+  unsigned r1 = ((regs & 0xf0) >> 4);
+  unsigned r2 = regs & 0x0f;
+  unsigned r1val;
+  unsigned r2val;
+  unsigned res;
+  unsigned neg_mask = 0x80;
+
+  if ((reg_size(r2) == 16) && (reg_size(r1) == 8)) {
+    r1 = reg8to16(r1);
+
+    neg_mask = 0x8000;
+  }
+
+  r1val = get_reg(r1);
+  r2val = get_reg(r2);
+
+  res = r1val | r2val;
+
+  N = res & neg_mask;
+  Z = (res == 0);
+  OV = 0;
+
+  set_reg(r2, res);
+  cpu_clk -= 4;
+}
+
+static void eorr(void)
+{
+  unsigned regs = read8(PC);
+  unsigned r1 = ((regs & 0xf0) >> 4);
+  unsigned r2 = regs & 0x0f;
+  unsigned r1val;
+  unsigned r2val;
+  unsigned res;
+  unsigned neg_mask = 0x80;
+
+  if ((reg_size(r2) == 16) && (reg_size(r1) == 8)) {
+    r1 = reg8to16(r1);
+
+    neg_mask = 0x8000;
+  }
+
+  r1val = get_reg(r1);
+  r2val = get_reg(r2);
+
+  res = r1val ^ r2val;
+
+  N = res & neg_mask;
+  Z = (res == 0);
+  OV = 0;
+
+  set_reg(r2, res);
+  cpu_clk -= 4;
+}
+
+static void cmpr(void)
+{
+  unsigned regs = read8(PC);
+  unsigned r1 = ((regs & 0xf0) >> 4);
+  unsigned r2 = regs & 0x0f;
+  unsigned r1val;
+  unsigned r2val;
+  unsigned res;
+  unsigned carry_mask = 0x100;
+  unsigned size_mask = 0xff;
+
+  if ((reg_size(r2) == 16) && (reg_size(r1) == 8)) {
+    r1 = reg8to16(r1);
+
+    carry_mask = 0x10000;
+    size_mask = 0xffff;
+  }
+
+  r1val = get_reg(r1);
+  r2val = get_reg(r2);
+
+  res = r2val - r1val;
+
+  C = res & carry_mask;
+  N = Z = res &= size_mask;
+  OV = H = (r1val ^ r2val) & (r1val ^ res);
+
+  cpu_clk -= 4;
 }
 
 static void ldw(unsigned arg)
@@ -1938,46 +2435,37 @@ int cpu_execute (int cycles)
 		addr();
 		break;
 	      case 0x31:	/* ADCR */
+		adcr();
 		break;
 	      case 0x32:	/* SUBR */
+		subr();
 		break;
 	      case 0x33:	/* SBCR */
+		sbcr();
 		break;
 	      case 0x34:	/* ANDR */
+		andr();
 		break;
 	      case 0x35:	/* ORR */
+		orr();
 		break;
 	      case 0x36:	/* EORR */
+		eorr();
 		break;
 	      case 0x37:	/* CMPR */
+		cmpr();
 		break;
 	      case 0x38:	/* PSHSW */
-		cpu_clk -= 6;
-		S = (S - 1) & 0xffff;
-		write_stack(S, F);
-		S = (S - 1) & 0xffff;
-		write_stack(S, E);
+                pshsw();
 		break;
 	      case 0x39:	/* PULSW */
-		cpu_clk -= 6;
-		E = read_stack(S);
-		S = (S + 1) & 0xffff;
-		F = read_stack(S);
-		S = (S + 1) & 0xffff;
+                pulsw();
 		break;
 	      case 0x3a:	/* PSHUW */
-		cpu_clk -= 6;
-		U = (U - 1) & 0xffff;
-		write_stack(U, F);
-		U = (U - 1) & 0xffff;
-		write_stack(U, E);
+                pshuw();
 		break;
 	      case 0x3b:	/* PULUW */
-		cpu_clk -= 6;
-		E = read_stack(U);
-		U = (U + 1) & 0xffff;
-		F = read_stack(U);
-		U = (U + 1) & 0xffff;
+                puluw();
 		break;
 #endif
 	      case 0x3f:
@@ -1985,84 +2473,101 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0x40:	/* NEGD */
-		{
-		  int val = (A<<8) | B;
-		  
-		  val = -val;
-
-		  C = val;
-		  N = (val <0);
-		  Z = (val == 0);
-		  OV = (val == 32768);
-
-		  A = (val >> 8) & 0xff;
-		  B = val & 0xff;
-		  cpu_clk -= 2;
-		}
+		set_d(neg16(get_d()));
 		break;
 	      case 0x43:	/* COMD */
+		set_d(com16(get_d()));
 		break;
 	      case 0x44:	/* LSRD */
+                set_d(lsr(get_d()));
 		break;
 	      case 0x46:	/* RORD */
+                set_d(ror16(get_d()));
 		break;
 	      case 0x47:	/* ASRD */
+		set_d(asr16(get_d()));
 		break;
 	      case 0x48:	/* ASLD/LSLD */
+		set_d(asl16(get_d()));
 		break;
 	      case 0x49:	/* ROLD */
+                set_d(rol16(get_d()));
 		break;
 	      case 0x4a:	/* DECD */
+                set_d(dec16(get_d()));
 		break;
 	      case 0x4c:	/* INCD */
+                set_d(inc16(get_d()));
 		break;
 	      case 0x4d:	/* TSTD */
+                tst16(get_d());
 		break;
 	      case 0x4f:	/* CLRD */
+                set_d(clr16());
 		break;
 	      case 0x53:	/* COMW */
+		set_w(com16(get_w()));
 		break;
 	      case 0x54:	/* LSRW */
+                set_w(lsr(get_w()));
 		break;
 	      case 0x56:	/* ??RORW */
+                set_w(ror16(get_w()));
 		break;
 	      case 0x59:	/* ROLW */
+                set_w(rol16(get_w()));
 		break;
 	      case 0x5a:	/* DECW */
+                set_w(dec16(get_w()));
 		break;
 	      case 0x5c:	/* INCW */
+                set_w(inc16(get_w()));
 		break;
 	      case 0x5d:	/* TSTW */
+                tst16(get_w());
 		break;
 	      case 0x5f:	/* CLRW */
+                set_w(clr16());
 		break;
 	      case 0x80:	/* SUBW */
+                set_w(sub16(get_w(), imm_word()));
 		break;
 	      case 0x81:	/* CMPW */
+                cmp16(get_w(), imm_word());
 		break;
 	      case 0x82:	/* SBCD */
+		set_d(sbc16(get_d(), imm_word()));
 		break;
 #endif
 	      case 0x83:
 		cpu_clk -= 5;
-		cmp16 (get_d (), imm_word ());
+		cmp16(get_d(), imm_word ());
 		break;
 #ifdef H6309
 	      case 0x84:	/* ANDD */
+                set_d(and16(get_d(), imm_word()));
 		break;
 	      case 0x85:	/* BITD */
+		cpu_clk -= 4;
+		bit16(get_d(), imm_word());
 		break;
 	      case 0x86:	/* LDW */
 		cpu_clk -= 3;
 		ldw(imm_word());
 		break;
 	      case 0x88:	/* EORD */
+		cpu_clk -= 5;
+		set_d(eor(get_d(), imm_word()));
 		break;
 	      case 0x89:	/* ADCD */
+		cpu_clk -= 5;
+		set_d(adc16(get_d(), imm_word()));
 		break;
 	      case 0x8a:	/* ORD */
+		set_d(or(get_d(), imm_word()));
 		break;
 	      case 0x8b:	/* ADDW */
+		set_w(add16(get_w(), imm_word()));
 		break;
 #endif
 	      case 0x8c:
@@ -2075,10 +2580,19 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0x90:	/* SUBW */
+		direct();
+		cpu_clk -= 5;
+		set_w(sub16(get_w(), RDMEM16(ea)));
 		break;
 	      case 0x91:	/* CMPW */
+		direct();
+		cpu_clk -= 5;
+		cmp16(get_w(), RDMEM16(ea));
 		break;
 	      case 0x92:	/* SBCD */
+		direct();
+		cpu_clk -= 5;
+		set_d(sub16(get_d(), RDMEM16(ea)));
 		break;
 #endif
 	      case 0x93:
@@ -2089,20 +2603,44 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0x94:	/* ANDD */
+		direct();
+		cpu_clk -= 5;
+		set_d(and16(get_d(), RDMEM16(ea)));
 		break;
 	      case 0x95:	/* BITD */
+		direct();
+		cpu_clk -= 5;
+		bit16(get_d(), RDMEM16(ea));
 		break;
 	      case 0x96:	/* LDW */
+		direct();
+		cpu_clk -= 5;
+		ldw(RDMEM16(ea));
 		break;
-	      case 0x97:	/* STW */
+              case 0x97:	/* STW */
+                direct();
+                cpu_clk -= 5;
+                st16(get_w());
 		break;
 	      case 0x98:	/* EORD */
+		direct();
+		cpu_clk -= 5;
+		set_d(eor(get_d(), RDMEM16(ea)));
 		break;
 	      case 0x99:	/* ADCD */
+		direct();
+		cpu_clk -= 5;
+		set_d(adc16(get_d(), RDMEM16(ea)));
 		break;
 	      case 0x9a:	/* ORD */
+		direct();
+		cpu_clk -= 5;
+		set_d(or(get_d(), RDMEM16(ea)));
 		break;
 	      case 0x9b:	/* ADDW */
+		direct();
+		cpu_clk -= 5;
+		set_w(add16(get_w(), RDMEM16(ea)));
 		break;
 #endif
 	      case 0x9c:
@@ -2410,7 +2948,10 @@ int cpu_execute (int cycles)
 		cpu_clk -= 4;
 		E = ld (RDMEM (ea));
 		break;
-	      case 0x97: /* STe */
+	      case 0x97: /* STE */
+		direct ();
+		cpu_clk -= 4;
+		st(E);
 		break;
 	      case 0x9b: /* ADDE */
 		break;
@@ -2482,6 +3023,9 @@ int cpu_execute (int cycles)
 		E = ld (RDMEM (ea));
 		break;
 	      case 0xb7: /* STE */
+		extended();
+		cpu_clk -= 6;
+		st(E);
 		break;
 	      case 0xbb: /* ADDE */
 		break;
@@ -2546,6 +3090,9 @@ int cpu_execute (int cycles)
 		F = ld (RDMEM (ea));
 		break;
 	      case 0xf7: /* STF */
+		extended();
+		cpu_clk -= 5;
+		st(F);
 		break;
 	      case 0xfb: /* ADDF */
 		break;
@@ -2961,7 +3508,7 @@ int cpu_execute (int cycles)
 	  break;
 	case 0x83:
 	  cpu_clk -= 4;
-	  subd (imm_word ());
+          sub16(get_d(), imm_word ());
 	  break;
 	case 0x84:
 	  cpu_clk -= 2;
@@ -3021,7 +3568,7 @@ int cpu_execute (int cycles)
 	case 0x93:
 	  direct ();
 	  cpu_clk -= 4;
-	  subd (RDMEM16 (ea));
+          sub16(get_d(), RDMEM16 (ea));
 	  cpu_clk--;
 	  break;
 	case 0x94:
@@ -3100,7 +3647,7 @@ int cpu_execute (int cycles)
 	  break;
 	case 0xa3:
 	  indexed ();
-	  subd (RDMEM16 (ea));
+          sub16(get_d(), RDMEM16 (ea));
 	  cpu_clk--;
 	  break;
 	case 0xa4:
@@ -3172,7 +3719,7 @@ int cpu_execute (int cycles)
 	case 0xb3:
 	  extended ();
 	  cpu_clk -= 5;
-	  subd (RDMEM16 (ea));
+          sub16(get_d(), RDMEM16 (ea));
 	  cpu_clk--;
 	  break;
 	case 0xb4:
