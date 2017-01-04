@@ -884,6 +884,138 @@ static void stbt(void)
   WRMEM(ea, src);
   cpu_clk -= 7;
 }
+
+static void tfm_inc(void) {
+  unsigned regs = imm_byte();
+  unsigned src_reg_num = (regs >> 4) & 0x0f;
+  unsigned dst_reg_num = regs & 0x0f;
+  unsigned src_addr = get_reg(src_reg_num);
+  unsigned dst_addr = get_reg(dst_reg_num);
+  unsigned count = get_w();
+
+  cpu_clk -= (6 + (count * 3));
+
+  while (count) {
+    unsigned val = RDMEM(src_addr);
+    WRMEM(dst_addr, val);
+
+    src_addr++;
+    dst_addr++;
+
+    count--;
+  }
+
+  set_w(0);
+  Z = 1;
+}
+
+static void tfm_dec(void) {
+  unsigned regs = imm_byte();
+  unsigned src_reg_num = (regs >> 4) & 0x0f;
+  unsigned dst_reg_num = regs & 0x0f;
+  unsigned src_addr = get_reg(src_reg_num);
+  unsigned dst_addr = get_reg(dst_reg_num);
+  unsigned count = get_w();
+
+  cpu_clk -= (6 + (count * 3));
+
+  while (count) {
+    unsigned val = RDMEM(src_addr);
+    WRMEM(dst_addr, val);
+
+    src_addr--;
+    dst_addr--;
+
+    count--;
+  }
+
+  Z = 1;
+}
+
+static void tfm_inc_src(void) {
+  unsigned regs = imm_byte();
+  unsigned src_reg_num = (regs >> 4) & 0x0f;
+  unsigned dst_reg_num = regs & 0x0f;
+  unsigned src_addr = get_reg(src_reg_num);
+  unsigned dst_addr = get_reg(dst_reg_num);
+  unsigned count = get_w();
+
+  cpu_clk -= (6 + (count * 3));
+
+  while (count) {
+    unsigned val = RDMEM(src_addr);
+    WRMEM(dst_addr, val);
+
+    src_addr++;
+
+    count--;
+  }
+
+  Z = 1;
+}
+
+static void tfm_inc_dst(void) {
+  unsigned regs = imm_byte();
+  unsigned src_reg_num = (regs >> 4) & 0x0f;
+  unsigned dst_reg_num = regs & 0x0f;
+  unsigned src_addr = get_reg(src_reg_num);
+  unsigned dst_addr = get_reg(dst_reg_num);
+  unsigned count = get_w();
+
+  cpu_clk -= (6 + (count * 3));
+
+  while (count) {
+    unsigned val = RDMEM(src_addr);
+    WRMEM(dst_addr, val);
+
+    dst_addr++;
+
+    count--;
+  }
+
+  Z = 1;
+}
+
+static void divd(unsigned val)
+{
+  int reg = get_d();
+  int quot = reg / val;
+  int rem = reg - (quot * val);
+
+  A = quot;
+  B = rem;
+
+  Z = (quot == 0);
+  C = (quot & 1);
+  N = (quot < 0);
+  OV = 0; // TODO: This is wrong
+}
+
+static void divq(unsigned val)
+{
+  int reg = get_q();
+  int quot = reg / val;
+  int rem = reg - (quot * val);
+
+  set_w(quot);
+  set_d(rem);
+
+  Z = (quot == 0);
+  C = (quot & 1);
+  N = (quot < 0);
+  OV = 0; // TODO: This is wrong
+}
+
+static void muld(int val)
+{
+  int reg = (int)get_d() * val;
+
+  set_q(reg);
+
+  Z = (reg == 0);
+  C = 0;
+  N = (reg < 0);
+}
 #endif
 /* 8-Bit Accumulator and Memory Instructions */
 
@@ -1012,7 +1144,7 @@ static unsigned asr16 (unsigned arg)
 }
 #endif
 
-static void bit (unsigned arg, unsigned val)
+static void bit(unsigned arg, unsigned val)
 {
   unsigned res = arg & val;
 
@@ -3096,16 +3228,23 @@ int cpu_execute (int cycles)
 		stbt();
 		break;
 	      case 0x38: /* TFM */
+		tfm_inc();
 		break;
 	      case 0x39: /* TFM */
+		tfm_dec();
 		break;
 	      case 0x3a: /* TFM */
+		tfm_inc_src();
 		break;
 	      case 0x3b: /* TFM */
+		tfm_inc_dst();
 		break;
 	      case 0x3c: /* BITMD */
+		bit(MD, imm_byte());
 		break;
 	      case 0x3d: /* LDMD */
+		cpu_clk -= 5;
+		MD = imm_byte();
 		break;
 #endif
 	      case 0x3f:
@@ -3143,8 +3282,12 @@ int cpu_execute (int cycles)
 		F = clr(F);
 		break;
 	      case 0x80: /* SUBE */
+		cpu_clk -= 3;
+		E = sub(E, imm_byte());
 		break;
 	      case 0x81: /* CMPE */
+		cpu_clk -= 3;
+		cmp(E, imm_byte());
 		break;
 #endif
 	      case 0x83:
@@ -3157,6 +3300,8 @@ int cpu_execute (int cycles)
 		E = ld (imm_byte ());
 		break;
 	      case 0x8b: /* ADDE */
+		cpu_clk -= 3;
+		E = add(E, imm_byte());
 		break;
 #endif
 	      case 0x8c:
@@ -3165,14 +3310,27 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0x8d: /* DIVD */
+		cpu_clk -= 25;
+		divd(imm_byte());
 		break;
 	      case 0x8e: /* DIVQ */
+		cpu_clk -= 34;
+		divq(imm_word());
 		break;
 	      case 0x8f: /* MULD */
+		cpu_clk -= 28;
+		muld(imm_word());
 		break;
+
 	      case 0x90: /* SUBE */
+		direct();
+		cpu_clk -= 4;
+		E = sub(E, RDMEM(ea));
 		break;
 	      case 0x91: /* CMPE */
+		direct();
+		cpu_clk -= 4;
+		cmp(E, RDMEM(ea));
 		break;
 #endif
 	      case 0x93:
@@ -3193,6 +3351,9 @@ int cpu_execute (int cycles)
 		st(E);
 		break;
 	      case 0x9b: /* ADDE */
+		direct();
+		cpu_clk -= 4;
+		E = add(E, RDMEM(ea));
 		break;
 #endif
 	      case 0x9c:
@@ -3203,14 +3364,29 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0x9d: /* DIVD */
+		direct();
+		cpu_clk -= 26;
+		divd(RDMEM(ea));
 		break;
 	      case 0x9e: /* DIVQ */
+		direct();
+		cpu_clk -= 35;
+		divq(RDMEM16(ea));
 		break;
 	      case 0x9f: /* MULD */
+		direct();
+		cpu_clk -= 29;
+		muld(RDMEM16(ea));
 		break;
 	      case 0xa0: /* SUBE */
+		indexed();
+		cpu_clk -= 5;
+		E = sub(E, RDMEM(ea));
 		break;
 	      case 0xa1: /* CMPE */
+		indexed();
+		cpu_clk -= 5;
+		cmp(E, RDMEM(ea));
 		break;
 #endif
 	      case 0xa3:
@@ -3229,6 +3405,9 @@ int cpu_execute (int cycles)
 		st (E);
 		break;
 	      case 0xab: /* ADDE */
+		indexed();
+		cpu_clk -= 5;
+		E = add(E, RDMEM(ea));
 		break;
 #endif
 	      case 0xac:
@@ -3239,14 +3418,29 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0xad: /* DIVD */
+		indexed();
+		cpu_clk -= 27;
+		divd(RDMEM(ea));
 		break;
 	      case 0xae: /* DIVQ */
+		indexed();
+		cpu_clk -= 36;
+		divq(RDMEM16(ea));
 		break;
 	      case 0xaf: /* MULD */
+		indexed();
+		cpu_clk -= 30;
+		muld(RDMEM16(ea));
 		break;
 	      case 0xb0: /* SUBE */
+		extended();
+		cpu_clk -= 5;
+		E = sub(E, RDMEM(ea));
 		break;
 	      case 0xb1: /* CMPE */
+		extended();
+		cpu_clk -= 5;
+		cmp(E, RDMEM(ea));
 		break;
 #endif
 	      case 0xb3: /* CMPU */
@@ -3267,6 +3461,9 @@ int cpu_execute (int cycles)
 		st(E);
 		break;
 	      case 0xbb: /* ADDE */
+		extended();
+		cpu_clk -= 5;
+		E = add(E, RDMEM(ea));
 		break;
 #endif
 	      case 0xbc: /* CMPS */
@@ -3277,24 +3474,45 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0xbd: /* DIVD */
+		extended();
+		cpu_clk -= 27;
+		divd(RDMEM(ea));
 		break;
 	      case 0xbe: /* DIVQ */
+		extended();
+		cpu_clk -= 36;
+		divq(RDMEM16(ea));
 		break;
 	      case 0xbf: /* MULD */
+		extended();
+		cpu_clk -= 30;
+		muld(RDMEM16(ea));
 		break;
 	      case 0xc0: /* SUBF */
+		cpu_clk -= 3;
+		F = sub(F, imm_byte());
 		break;
 	      case 0xc1: /* CMPF */
+		cpu_clk -= 3;
+		cmp(F, imm_byte());
 		break;
 	      case 0xc6: /* LDF */
 		cpu_clk -= 2;
-		F = ld (imm_byte ());
+		F = ld(imm_byte ());
 		break;
 	      case 0xcb: /* ADDF */
+		cpu_clk -= 3;
+		F = add(F, imm_byte());
 		break;
 	      case 0xd0: /* SUBF */
+		direct();
+		cpu_clk -= 4;
+		F = sub(F, RDMEM(ea));
 		break;
 	      case 0xd1: /* CMPF */
+		direct();
+		cpu_clk -= 4;
+		cmp(F, RDMEM(ea));
 		break;
 	      case 0xd6: /* LDF */
 		direct ();
@@ -3302,12 +3520,24 @@ int cpu_execute (int cycles)
 		F = ld (RDMEM (ea));
 		break;
 	      case 0xd7: /* STF */
+		direct();
+		cpu_clk -= 4;
+		st(F);
 		break;
 	      case 0xdb: /* ADDF */
+		direct();
+		cpu_clk -= 4;
+		F = add(F, RDMEM(ea));
 		break;
 	      case 0xe0: /* SUBF */
+		indexed();
+		cpu_clk -= 5;
+		F = sub(F, RDMEM(ea));
 		break;
 	      case 0xe1: /* CMPF */
+		indexed();
+		cpu_clk -= 5;
+		cmp(F, RDMEM(ea));
 		break;
 	      case 0xe6: /* LDF */
 		indexed ();
@@ -3318,10 +3548,19 @@ int cpu_execute (int cycles)
 		st (F);
 		break;
 	      case 0xeb: /* ADDF */
+		indexed();
+		cpu_clk -= 5;
+		F = add(F, RDMEM(ea));
 		break;
 	      case 0xf0: /* SUBF */
+		extended();
+		cpu_clk -= 5;
+		F = sub(F, RDMEM(ea));
 		break;
 	      case 0xf1: /* CMPF */
+		extended();
+		cpu_clk -= 5;
+		cmp(F, RDMEM(ea));
 		break;
 	      case 0xf6: /* LDF */
 		extended ();
@@ -3334,6 +3573,9 @@ int cpu_execute (int cycles)
 		st(F);
 		break;
 	      case 0xfb: /* ADDF */
+		extended();
+		cpu_clk -= 5;
+		F = add(F, RDMEM(ea));
 		break;
 #endif
 	      default:
