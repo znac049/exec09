@@ -42,7 +42,7 @@ enum addr_mode
   _illegal, _implied, _imm_byte, _imm_word, _direct, _extended,
   _indexed, _rel_byte, _rel_word, _reg_post, _sys_post, _usr_post,
 #ifdef H6309
-  _imm_direct, _imm_quad, _reg_reg
+  _imm_direct, _imm_quad, _reg_reg, _single_bit
 #endif
 };
 
@@ -70,7 +70,8 @@ enum opcode
   _ldq, _stq, _sexw, _tim, _pshsw, _pshuw, _pulsw, _puluw,
   _ste, _stf, _adcr, _subr, _sbcr, _andr, _orr, _eorr, _cmpr,
   _asld, _comw, _lsrw, _rorw, _rolw, _decw, _incw, _tstw, _clrw,
-  _subw, _cmpw, _sbcd, _andd, _bitd, _eord, _adcd, _ord, _addw
+  _subw, _cmpw, _sbcd, _andd, _bitd, _eord, _adcd, _ord, _addw,
+  _band, _biand, _bor, _bior, _beor, _bieor, _ldbt, _stbt, _stw
 #endif
 };
 
@@ -98,7 +99,8 @@ char *mne[] = {
   "PULUW", "STE", "STF", "ADCR", "SUBR", "SBCR", "ANDR", "ORR", "EORR",
   "CMPR", "ASLD", "COMW", "LSRW", "RORW", "ROLW", "DECW", "INCW", "TSTW",
   "CLRW", "SUBW", "CMPW", "SBCD", "ANDD", "BITD", "EORD", "ADCD", "ORD",
-  "ADDW"
+  "ADDW", "BAND", "BIAND", "BOR", "BIOR", "BEOR", "BIEOR", "LDBT", "STBT",
+  "STW"
 #endif
 };
 
@@ -663,10 +665,26 @@ opcode_t codes10[256] = {
   {_ldy, _imm_word},
   {_undoc, _illegal},
   // 90
+#ifdef H6309
+  {_subw, _direct},
+  {_cmpw, _direct},
+  {_sbcd, _direct},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_cmpd, _direct},
+#ifdef H6309
+  {_andd, _direct},
+  {_bitd, _direct},
+  {_ldw, _direct},
+  {_stw, _direct},
+  {_eord, _direct},
+  {_adcd, _direct},
+  {_ord, _direct},
+  {_addw, _direct},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -675,15 +693,32 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_cmpy, _direct},
   {_undoc, _illegal},
   {_ldy, _direct},
   {_sty, _direct},
   // A0
+#ifdef H6309
+  {_subw, _indexed},
+  {_cmpw, _indexed},
+  {_sbcd, _indexed},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_cmpd, _indexed},
+#ifdef H6309
+  {_andd, _indexed},
+  {_bitd, _indexed},
+  {_ldw, _indexed},
+  {_stw, _indexed},
+  {_eord, _indexed},
+  {_adcd, _indexed},
+  {_ord, _indexed},
+  {_addw, _indexed},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -692,15 +727,32 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_cmpy, _indexed},
   {_undoc, _illegal},
   {_ldy, _indexed},
   {_sty, _indexed},
   // B0
+#ifdef H6309
+  {_subw, _extended},
+  {_cmpw, _extended},
+  {_sbcd, _extended},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_cmpd, _extended},
+#ifdef H6309
+  {_andd, _extended},
+  {_bitd, _extended},
+  {_ldw, _extended},
+  {_stw, _extended},
+  {_eord, _extended},
+  {_adcd, _extended},
+  {_ord, _extended},
+  {_addw, _extended},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -709,6 +761,7 @@ opcode_t codes10[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_cmpy, _extended},
   {_undoc, _illegal},
   {_ldy, _extended},
@@ -851,6 +904,16 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   // 30
+#ifdef H6309
+  {_band, _single_bit},
+  {_biand, _single_bit},
+  {_bor, _single_bit},
+  {_bior, _single_bit},
+  {_beor, _single_bit},
+  {_bieor, _single_bit},
+  {_ldbt, _single_bit},
+  {_stbt, _single_bit},
+#else
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -859,6 +922,7 @@ opcode_t codes11[256] = {
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
+#endif
   {_undoc, _illegal},
   {_undoc, _illegal},
   {_undoc, _illegal},
@@ -1238,6 +1302,17 @@ int dasm (char *buf, absolute_address_t opc)
 	unsigned r2 = regs & 0x0f;
 
 	sprintf (buf, "%s,%s", reg[r1], reg[r2]);
+      }
+      break;
+    case _single_bit:
+      {
+	unsigned bits = fetch8();
+	unsigned regbit = bits & 0x07;
+	unsigned srcbit = (bits >> 3) & 0x07;
+	unsigned regnum = (bits >> 6) & 0x03;
+	static char *reg_name[4] = {"CC", "A", "B", "???"};
+
+	sprintf(buf, "%s.%d,%s.%d", reg_name[regnum], regbit, monitor_addr_name(fetch8()), srcbit);
       }
       break;
 #endif

@@ -35,6 +35,9 @@ unsigned E, F, V, MD;
 #define MD_FIRQ_LIKE_IRQ 0x2	/* if 1, FIRQ acts like IRQ */
 #define MD_ILL 0x40		/* illegal instruction */
 #define MD_DBZ 0x80		/* divide by zero */
+
+#define NO_INV 0
+#define INV 1
 #endif /* H6309 */
 
 unsigned iPC;
@@ -720,6 +723,168 @@ void set_reg (unsigned nro, unsigned val)
     }
 }
 
+#ifdef H6309
+static unsigned get_bit_reg(unsigned reg)
+{
+  unsigned res = 0;
+
+  switch (reg) {
+  case 0:
+    res = get_cc();
+    break;
+
+  case 1:
+    res = A;
+    break;
+
+  case 2:
+    res = B;
+    break;
+  }
+
+  return res;
+}
+
+static void set_bit_reg(unsigned reg, unsigned val)
+{
+  switch (reg) {
+  case 0:
+    set_cc(val);
+    break;
+
+  case 1:
+    A = val;
+    break;
+
+  case 2:
+    B = val;
+    break;
+  }
+}
+
+#define BITn(val, n) ((val >> n) & 1)
+
+static void band(int invert)
+{
+  unsigned regs = imm_byte();
+  unsigned reg_num = (regs >> 6) & 0x03;
+
+  unsigned reg = get_bit_reg(reg_num);
+  unsigned reg_bit_num = regs & 0x07;
+  unsigned reg_mask = ~(1<<reg_bit_num);
+  unsigned src;
+
+  unsigned bit;
+
+  direct();
+  src = RDMEM(ea);
+  if (invert) {
+    src = ~src;
+  }
+
+  bit = BITn(reg, reg_bit_num) & BITn(src, (regs >> 3) & 0x07);
+  reg = (reg & reg_mask) | (bit << reg_bit_num);
+
+  set_bit_reg(reg_num, reg);
+  cpu_clk -= 6;
+}
+
+static void bor(int invert)
+{
+  unsigned regs = imm_byte();
+  unsigned reg_num = (regs >> 6) & 0x03;
+
+  unsigned reg = get_bit_reg(reg_num);
+  unsigned reg_bit_num = regs & 0x07;
+  unsigned reg_mask = ~(1<<reg_bit_num);
+  unsigned src;
+
+  unsigned bit;
+
+  direct();
+  src = RDMEM(ea);
+  if (invert) {
+    src = ~src;
+  }
+
+  bit = BITn(reg, reg_bit_num) | BITn(src, (regs >> 3) & 0x07);
+  reg = (reg & reg_mask) | (bit << reg_bit_num);
+
+  set_bit_reg(reg_num, reg);
+  cpu_clk -= 6;
+}
+
+static void beor(int invert)
+{
+  unsigned regs = imm_byte();
+  unsigned reg_num = (regs >> 6) & 0x03;
+
+  unsigned reg = get_bit_reg(reg_num);
+  unsigned reg_bit_num = regs & 0x07;
+  unsigned reg_mask = ~(1<<reg_bit_num);
+  unsigned src;
+
+  unsigned bit;
+
+  direct();
+  src = RDMEM(ea);
+  if (invert) {
+    src = ~src;
+  }
+
+  bit = BITn(reg, reg_bit_num) ^ BITn(src, (regs >> 3) & 0x07);
+  reg = (reg & reg_mask) | (bit << reg_bit_num);
+
+  set_bit_reg(reg_num, reg);
+  cpu_clk -= 6;
+}
+
+static void ldbt(void)
+{
+  unsigned regs = imm_byte();
+  unsigned reg_num = (regs >> 6) & 0x03;
+
+  unsigned reg = get_bit_reg(reg_num);
+  unsigned reg_bit_num = regs & 0x07;
+  unsigned reg_mask = ~(1<<reg_bit_num);
+  unsigned src;
+
+  unsigned bit;
+
+  direct();
+  src = RDMEM(ea);
+
+  bit = BITn(src, (regs >> 3) & 0x07);
+  reg = (reg & reg_mask) | (bit << reg_bit_num);
+
+  set_bit_reg(reg_num, reg);
+  cpu_clk -= 6;
+}
+
+static void stbt(void)
+{
+  unsigned regs = imm_byte();
+  unsigned reg_num = (regs >> 6) & 0x03;
+
+  unsigned reg = get_bit_reg(reg_num);
+  unsigned reg_bit_num = regs & 0x07;
+
+  unsigned src;
+  unsigned src_bit_num = (regs >> 3) & 0x07;
+  unsigned src_mask = ~(1<<src_bit_num);
+
+  unsigned bit;
+
+  direct();
+  src = RDMEM(ea);
+
+  bit = BITn(src, reg_bit_num);
+  src = (src & src_mask) | (bit << src_bit_num);
+
+  WRMEM(ea, src);
+  cpu_clk -= 7;
+}
+#endif
 /* 8-Bit Accumulator and Memory Instructions */
 
 static unsigned adc (unsigned arg, unsigned val)
@@ -2592,7 +2757,7 @@ int cpu_execute (int cycles)
 	      case 0x92:	/* SBCD */
 		direct();
 		cpu_clk -= 5;
-		set_d(sub16(get_d(), RDMEM16(ea)));
+		set_d(sbc16(get_d(), RDMEM16(ea)));
 		break;
 #endif
 	      case 0x93:
@@ -2661,10 +2826,19 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0xa0:	/* SUBW */
+		indexed();
+		cpu_clk -= 6;
+		set_w(sub16(get_w(), RDMEM16(ea)));
 		break;
 	      case 0xa1:	/* CMPW */
+		indexed();
+		cpu_clk -= 6;
+		sub16(get_w(), RDMEM16(ea));
 		break;
 	      case 0xa2:	/* SBCD */
+		indexed();
+		cpu_clk -= 6;
+		set_d(sub16(get_d(), RDMEM16(ea)));
 		break;
 #endif
 	      case 0xa3:
@@ -2675,20 +2849,44 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0xa4:	/* ANDD */
+		indexed();
+		cpu_clk -= 6;
+		set_d(and16(get_d(), RDMEM16(ea)));
 		break;
 	      case 0xa5:	/* BITD */
+		indexed();
+		cpu_clk -= 6;
+		bit16(get_d(), RDMEM16(ea));
 		break;
 	      case 0xa6:	/* LDW */
+		indexed();
+		cpu_clk -= 6;
+		ldw(RDMEM16(ea));
 		break;
 	      case 0xa7:	/* STW */
+		indexed();
+		cpu_clk -= 6;
+		st16(get_w());
 		break;
 	      case 0xa8:	/* EORD */
+		indexed();
+		cpu_clk -= 6;
+		set_d(eor(get_d(), RDMEM16(ea)));
 		break;
 	      case 0xa9:	/* ADCD */
+		indexed();
+		cpu_clk -= 6;
+		set_d(adc16(get_d(), RDMEM16(ea)));
 		break;
 	      case 0xaa:	/* ORD */
+		indexed();
+		cpu_clk -= 6;
+		set_d(or(get_d(), RDMEM16(ea)));
 		break;
 	      case 0xab:	/* ADDW */
+		indexed();
+		cpu_clk -= 6;
+		set_w(add16(get_w(), RDMEM16(ea)));
 		break;
 #endif
 	      case 0xac:
@@ -2709,10 +2907,19 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0xb0:	/* SUBW */
+		cpu_clk -= 6;
+		extended();
+		set_w(sub16(get_w(), RDMEM16(ea)));
 		break;
 	      case 0xb1:	/* CMPW */
+		cpu_clk -= 6;
+		extended();
+		cmp16(get_w(), RDMEM16(ea));
 		break;
 	      case 0xb2:	/* SBCD */
+		cpu_clk -= 6;
+		extended();
+		set_d(sbc16(get_d(), RDMEM16(ea)));
 		break;
 #endif
 	      case 0xb3:
@@ -2723,20 +2930,44 @@ int cpu_execute (int cycles)
 		break;
 #ifdef H6309
 	      case 0xb4:	/* ANDD */
+		cpu_clk -= 6;
+		extended();
+		set_d(and16(get_d(), RDMEM16(ea)));
 		break;
 	      case 0xb5:	/* BITD */
+		cpu_clk -= 6;
+		extended();
+		bit16(get_d(), RDMEM16(ea));
 		break;
 	      case 0xb6:	/* LDW */
+		cpu_clk -= 6;
+		extended();
+		ldw(RDMEM16(ea));
 		break;
 	      case 0xb7:	/* STW */
+		cpu_clk -= 6;
+		extended();
+		st16(get_w());
 		break;
 	      case 0xb8:	/* EORD */
+		cpu_clk -= 6;
+		extended();
+		set_d(eor(get_d(), RDMEM16(ea)));
 		break;
 	      case 0xb9:	/* ADCD */
+		cpu_clk -= 6;
+		extended();
+		set_d(adc16(get_d(), RDMEM16(ea)));
 		break;
 	      case 0xba:	/* ORD */
+		cpu_clk -= 6;
+		extended();
+		set_d(or(get_d(), RDMEM16(ea)));
 		break;
 	      case 0xbb:	/* ADDW */
+		cpu_clk -= 6;
+		extended();
+		set_d(add16(get_d(), RDMEM16(ea)));
 		break;
 #endif
 	      case 0xbc:
@@ -2841,20 +3072,28 @@ int cpu_execute (int cycles)
 	      {
 #ifdef H6309
 	      case 0x30: /* BAND */
+		band(NO_INV);
 		break;
 	      case 0x31: /* BIAND */
+		band(INV);
 		break;
 	      case 0x32: /* BOR */
+		bor(NO_INV);
 		break;
 	      case 0x33: /* BIOR */
+		bor(INV);
 		break;
 	      case 0x34: /* BEOR */
+		beor(NO_INV);
 		break;
 	      case 0x35: /* BIEOR */
+		beor(INV);
 		break;
 	      case 0x36: /* LDBT */
+                ldbt();
 		break;
 	      case 0x37: /* STBT */
+		stbt();
 		break;
 	      case 0x38: /* TFM */
 		break;
