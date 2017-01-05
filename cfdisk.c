@@ -85,20 +85,8 @@ FILE *file_require_open (struct pathlist *path, const char *filename, const char
 void file_close (FILE *fp);
 char *file_get_fqname();
 
-struct cf_disk
-{
-  char *name;
-  FILE *fd;
-  long lsn;
-  int count;
-  int index;
-  long max_lsn;
-  U8 data[BYTES_PER_SECTOR];
-};
-
 struct cf_controller
 {
-  struct cf_disk disk[2];
   int controllerId;
   U8 status_reg;
   U8 error_reg;
@@ -108,39 +96,44 @@ struct cf_controller
   U8 num_heads;
   U16 num_cylinders;
   short int disk_id;
+
+  char *name;
+  FILE *fd;
+  long lsn;
+  int count;
+  int index;
+  long max_lsn;
+  U8 data[BYTES_PER_SECTOR];
 };
 
 static struct pathlist cf_path;
 static int controllerId = 0;
 
-void cf_status(struct cf_controller *controller) {
-  struct cf_disk *disk = &controller->disk[controller->disk_id];
-
-  debugf(20, "ID=%d: LSN: %ld, INDEX:COUNT: %d:%d, MAXLSN: %ld\n", controller->disk_id, disk->lsn, disk->index, disk->count, disk->max_lsn);
-  debugf(20, "SR=0x%02x, ER=0x%02x, FR=0x%02x\n\n", controller->status_reg, controller->error_reg, controller->features_reg);
+void cf_status(struct cf_controller *cfdev) {
+  debugf(20, "ID=%d: LSN: %ld, INDEX:COUNT: %d:%d, MAXLSN: %ld\n", cfdev->disk_id, cfdev->lsn, cfdev->index, cfdev->count, cfdev->max_lsn);
+  debugf(20, "SR=0x%02x, ER=0x%02x, FR=0x%02x\n\n", cfdev->status_reg, cfdev->error_reg, cfdev->features_reg);
 }
 
-void single_byte_result(U8 val, struct cf_disk *disk)
+void single_byte_result(U8 val, struct cf_controller *cfdev)
 {
-  disk->data[0] = val;
-  disk->count = 1;
-  disk->index = 0;
+  cfdev->data[0] = val;
+  cfdev->count = 1;
+  cfdev->index = 0;
 }
 
 U8 compact_flash_read (struct hw_device *dev, unsigned long addr)
 {
-  struct cf_controller *controller = dev->priv;
-  struct cf_disk *disk = &controller->disk[controller->disk_id];
+  struct cf_controller *cfdev = dev->priv;
   int retval=0;
 
   switch (addr) {
   case CF_DATA_REG:
-    if (disk->count) {
-      disk->count--;
-      retval = disk->data[disk->index];
-      disk->index++;
-      if (disk->count == 0) {
-	controller->status_reg &= ~SR_DRQ;
+    if (cfdev->count) {
+      cfdev->count--;
+      retval = cfdev->data[cfdev->index];
+      cfdev->index++;
+      if (cfdev->count == 0) {
+	cfdev->status_reg &= ~SR_DRQ;
       }
       debugf(20, "Read DATA Reg: 0x%02x\n", retval);
     }
@@ -151,37 +144,37 @@ U8 compact_flash_read (struct hw_device *dev, unsigned long addr)
     break;
 
   case CF_ERROR_REG:
-    retval = controller->error_reg;
+    retval = cfdev->error_reg;
     debugf(20, "Read CF ERROR Reg: 0x%02x\n", retval);
     break;
 
   case CF_SECTOR_COUNT_REG:
-    retval = disk->count;
+    retval = cfdev->count;
     debugf(20, "Read SECTOR COUNT Reg: 0x%02x\n", retval);
     break;
 
   case CF_LSN0_REG:
-    retval = (int)(disk->lsn & 0xff);
+    retval = (int)(cfdev->lsn & 0xff);
     debugf(20, "Read LSN0 Reg: 0x%02x\n", retval);
     break;
 
   case CF_LSN1_REG:
-    retval = (int)((disk->lsn >> 8) & 0xff);
+    retval = (int)((cfdev->lsn >> 8) & 0xff);
     debugf(20, "Read LSN1 Reg: 0x%02x\n", retval);
     break;
 
   case CF_LSN2_REG:
-    retval = (int)((disk->lsn >> 16) & 0xff);
+    retval = (int)((cfdev->lsn >> 16) & 0xff);
     debugf(20, "Read LSN2 Reg: 0x%02x\n", retval);
     break;
 
   case CF_LSN3_REG:
-    retval = (int)(((disk->lsn >> 24) & 0xff) | 0xe0000000);
+    retval = (int)(((cfdev->lsn >> 24) & 0xff) | 0xe0000000);
     debugf(20, "Read LSN3 Reg: 0x%02x\n", retval);
     break;
 
   case CF_STATUS_REG:
-    retval = controller->status_reg;
+    retval = cfdev->status_reg;
     debugf(20, "Read STATUS Reg: 0x%02x\n", retval);
     break;
 
@@ -193,18 +186,18 @@ U8 compact_flash_read (struct hw_device *dev, unsigned long addr)
   return retval;
 }
 
-void set_device_info(struct cf_disk *disk)
+void set_device_info(struct cf_controller *cfdev)
 {
-  U16 *words = (U16 *)disk->data;
+  U16 *words = (U16 *)cfdev->data;
  
-  bzero(disk->data, BYTES_PER_SECTOR);
+  bzero(cfdev->data, BYTES_PER_SECTOR);
 
   words[0] = 0x0080; // Removable media
-  words[1] = 0xffff; // logical cylinders
-  words[3] = 15;     // logical heads
-  words[6] = 42;      // sectors per track
+  words[1] = cfdev->num_cylinders;
+  words[3] = cfdev->num_heads;
+  words[6] = cfdev->sectors_per_track;
 
-  strcpy((char *)&words[10], "00000000000000000042");
+  strcpy((char *)&words[10], "00000000000000009942");
 
   words[22] = 0;
 
@@ -213,25 +206,25 @@ void set_device_info(struct cf_disk *disk)
 
   words[49] = 99;
 
-  disk->count = 256;
-  disk->index = 0;
+  cfdev->count = 256;
+  cfdev->index = 0;
 }
 
-void exec_set_features_cmd(struct cf_controller *controller, struct cf_disk *disk)
+void exec_set_features_cmd(struct cf_controller *cfdev)
 {
-  debugf(20, "Execute SET_FEATURES command. Feature=0x%02x\n", controller->features_reg);
+  debugf(20, "Execute SET_FEATURES command. Feature=0x%02x\n", cfdev->features_reg);
 
-  if (!controller->status_reg & SR_DRDY) {
+  if (!cfdev->status_reg & SR_DRDY) {
     debugf(20, "Device has not been initialised - aborting command\n");
     
-    controller->status_reg |= SR_ERR;
-    controller->error_reg |= ER_ABRT;
+    cfdev->status_reg |= SR_ERR;
+    cfdev->error_reg |= ER_ABRT;
     return;
   }
 
-  switch (controller->features_reg) {
+  switch (cfdev->features_reg) {
   case 0x01: /* Enable 8-bit  data transfers */
-    controller->eight_bit_mode = 1;
+    cfdev->eight_bit_mode = 1;
     debugf(20, "Enable 8-bit transfers\n");
     break;
 
@@ -260,7 +253,7 @@ void exec_set_features_cmd(struct cf_controller *controller, struct cf_disk *dis
     break;
 
   case 0x81: /* Disable 8-bit data transfers */
-    controller->eight_bit_mode = 0;
+    cfdev->eight_bit_mode = 0;
     debugf(20, "Disable 8-bit transfers\n");
     break;
 
@@ -290,132 +283,121 @@ void exec_set_features_cmd(struct cf_controller *controller, struct cf_disk *dis
   }
 }
 
-void exec_device_diag_cmd(struct cf_controller *controller)
+void exec_device_diag_cmd(struct cf_controller *cfdev)
 {
-  U8 code;
+  U8 code = 0x80;
 
   debugf(20, "Execute DEVICE DIAG command.\n");
 
-  if (controller->disk[0].fd) {
+  if (cfdev->fd) {
     debugf(20, "Device 0 found\n");
     code = 0x01;
-  }
-  else {
-    code = (controller->disk[1].fd)?0x81:0x80;
+    cfdev->status_reg |= SR_DRDY;
   }
 
-  // If one or more device is present, set the DRDY bit
-  debugf(20, "Diag status code=0x%02x\n", code);
-  if (code != 0x80) {
-    controller->status_reg |= SR_DRDY;
-  }
-
-  controller->error_reg = code;
+  cfdev->error_reg = code;
 }
 
-void exec_device_params_cmd(struct cf_controller *controller, struct cf_disk *disk)
+void exec_device_params_cmd(struct cf_controller *cfdev)
 {
   U8 code = 0;
-  int spt = disk->count;
-  int heads = (disk->lsn & 0x000000ff) + 1;
-  int cyls = controller->num_cylinders;
+  int spt = cfdev->count;
+  int heads = (cfdev->lsn & 0x000000ff) + 1;
+  int cyls = cfdev->num_cylinders;
 
   debugf(20, "Execute INIT DEVICE PARAMS command.\n");
 
   debugf(20, "New CHS=%d:%d:%d\n", cyls, heads, spt);
 
-  if (! (controller->num_heads == heads) && (controller->sectors_per_track == spt)) {
+  if (! (cfdev->num_heads == heads) && (cfdev->sectors_per_track == spt)) {
     debugf(20, "CHS not supported\n");
 
-    controller->status_reg |= SR_ERR;
-    controller->error_reg |= ER_ABRT;
+    cfdev->status_reg |= SR_ERR;
+    cfdev->error_reg |= ER_ABRT;
   }
 }
 
-void exec_identify_cmd(struct cf_controller *controller, struct cf_disk *disk)
+void exec_identify_cmd(struct cf_controller *cfdev)
 {
   debugf(20, "Execute IDENTIFY DEVICE command.\n");
 
-  if (!controller->status_reg & SR_DRDY) {
+  if (!cfdev->status_reg & SR_DRDY) {
     debugf(20, "Device has not been initialised - aborting command\n");
     
-    controller->status_reg |= SR_ERR;
-    controller->error_reg |= ER_ABRT;
+    cfdev->status_reg |= SR_ERR;
+    cfdev->error_reg |= ER_ABRT;
     return;
   }
 
-  set_device_info(disk);
-  controller->status_reg |= SR_DRQ;
+  set_device_info(cfdev);
+  cfdev->status_reg |= SR_DRQ;
 }
 
-void exec_write_cmd(struct cf_controller *controller, struct cf_disk *disk)
+void exec_write_cmd(struct cf_controller *cfdev)
 {
   debugf(20, "Execute WRITE LONG command.\n");
 
-  if (!controller->status_reg & SR_DRDY) {
+  if (!cfdev->status_reg & SR_DRDY) {
     debugf(20, "Device has not been initialised - aborting command\n");
     
-    controller->status_reg |= SR_ERR;
-    controller->error_reg |= ER_ABRT;
+    cfdev->status_reg |= SR_ERR;
+    cfdev->error_reg |= ER_ABRT;
     return;
   }
 
 }
 
-void exec_read_cmd(struct cf_controller *controller, struct cf_disk *disk)
+void exec_read_cmd(struct cf_controller *cfdev)
 {
   debugf(20, "Execute WRITE LONG command.\n");
 
-  if (!controller->status_reg & SR_DRDY) {
+  if (!cfdev->status_reg & SR_DRDY) {
     debugf(20, "Device has not been initialised - aborting command\n");
     
-    controller->status_reg |= SR_ERR;
-    controller->error_reg |= ER_ABRT;
+    cfdev->status_reg |= SR_ERR;
+    cfdev->error_reg |= ER_ABRT;
     return;
   }
 
 }
 
-void execute_command(U8 cmd, struct cf_controller *controller, struct cf_disk *disk)
+void execute_command(U8 cmd, struct cf_controller *cfdev)
 {
-  controller->error_reg = 0;
-  controller->status_reg &= ~SR_ERR;
+  cfdev->error_reg = 0;
+  cfdev->status_reg &= ~SR_ERR;
 
   switch(cmd) {
   case CMD_IDENTIFY_DEVICE:
-    exec_identify_cmd(controller, disk);
+    exec_identify_cmd(cfdev);
     break;
 
   case CMD_INIT_DEVICE_PARAMS:
-    exec_device_params_cmd(controller, disk);
+    exec_device_params_cmd(cfdev);
     break;
 
   case CMD_EXECUTE_DEVICE_DIAGNOSTIC:
-    exec_device_diag_cmd(controller);
+    exec_device_diag_cmd(cfdev);
     break;
 
   case CMD_SET_FEATURES:
-    exec_set_features_cmd(controller, disk);
+    exec_set_features_cmd(cfdev);
     break;
 
   case CMD_WRITELONG:
   case CMD_WRITELONG_RETRY:
-    exec_write_cmd(controller, disk);
+    exec_write_cmd(cfdev);
     break;
 
   case CMD_READLONG:
   case CMD_READLONG_RETRY:
-    exec_read_cmd(controller, disk);
+    exec_read_cmd(cfdev);
     break;
   }
 }
 
 void compact_flash_write (struct hw_device *dev, unsigned long addr, U8 val)
 {
-  struct cf_controller *controller = dev->priv;
-  struct cf_disk *disk = &controller->disk[controller->disk_id];
-
-  debugf(20, "CF_write() addr=$%04lx, val=$%02x\n", addr, val);
+  struct cf_controller *cfdev = dev->priv;
 
   switch (addr) {
   case CF_DATA_REG:
@@ -424,44 +406,46 @@ void compact_flash_write (struct hw_device *dev, unsigned long addr, U8 val)
 
   case CF_FEATURES_REG:
     debugf(20, "Write FEATURES REG=0x%02x\n", val);
-    controller->features_reg = val;
+    cfdev->features_reg = val;
     break;
 
   case CF_SECTOR_COUNT_REG:
     debugf(20, "Write DATA COUNT=0x%02x\n", val);
-    disk->count = val;
+    cfdev->count = val;
     break;
 
   case CF_LSN0_REG:
     debugf(20, "Write LSN0=0x%02x\n", val);
-    disk->lsn = (disk->lsn & 0xffffff00) | (long)val;
+    cfdev->lsn = (cfdev->lsn & 0xffffff00) | (long)val;
     break;
 
   case CF_LSN1_REG:
     debugf(20, "Write LSN1=0x%02x\n", val);
-    disk->lsn = (disk->lsn & 0xffff00ff) | (long)(val<<8);
+    cfdev->lsn = (cfdev->lsn & 0xffff00ff) | (long)(val<<8);
     break;
 
   case CF_LSN2_REG:
     debugf(20, "Write LSN2=0x%02x\n", val);
-    disk->lsn = (disk->lsn & 0xff00ffff) | (long)((val & 0x0f)<<16) & 0x0f;
-    controller->disk_id = val>>4 & 0x10;
+    cfdev->lsn = (cfdev->lsn & 0xff00ffff) | (long)((val & 0x0f)<<16) & 0x0f;
+    cfdev->disk_id = val>>4 & 0x10;
     break;
 
   case CF_LSN3_REG:
     debugf(20, "Write LSN3=0x%02x\n", val);
-    // This may change the currently selected disk
-    controller->disk_id = (val>>4 & 0x01);
-    *disk = controller->disk[controller->disk_id];
-    disk->lsn = (disk->lsn & 0x00ffffff) | (long)((val & 0x0f) <<24);
+    cfdev->disk_id = (val>>4 & 0x01);
+    cfdev->lsn = (cfdev->lsn & 0x00ffffff) | (long)((val & 0x0f) <<24);
     break;
 
   case CF_COMMAND_REG:
-    execute_command(val, controller, disk);
+    execute_command(val, cfdev);
+    break;
+
+  default:
+    debugf(20, "CF_write() bad addr=$%04lx, val=$%02x\n", addr, val);
     break;
   }
 
-  cf_status(controller);
+  cf_status(cfdev);
 }
 
 void compact_flash_reset (struct hw_device *dev)
@@ -483,29 +467,28 @@ struct hw_class compact_flash_class = {
 
 void connect_to_disk_file(struct cf_controller *cfdev, int diskNum)
 {
-  struct cf_disk *disk = &cfdev->disk[diskNum];
   char name[MAXSTR];
 
   sprintf(name, "cfdisk%d-%d.dsk", cfdev->controllerId, diskNum);
 
   //printf("DISK: %s\n", name);
-  disk->fd = file_open(&cf_path, name, "r");
+  cfdev->fd = file_open(&cf_path, name, "r");
 
-  disk->name = strdup(file_get_fqname());
-  disk->lsn = disk->max_lsn = 0L;
-  disk->count = disk->index = 0;
+  cfdev->name = strdup(file_get_fqname());
+  cfdev->lsn = cfdev->max_lsn = 0L;
+  cfdev->count = cfdev->index = 0;
 
-  if (disk->fd) {
+  if (cfdev->fd) {
     long endpos;
 
     // reopen the file for writing
-    file_close(disk->fd);
-    disk->fd = fopen(disk->name, "a");
+    file_close(cfdev->fd);
+    cfdev->fd = fopen(cfdev->name, "a");
 
-    fseek(disk->fd, 0, SEEK_END);
-    endpos = ftell(disk->fd);
-    disk->max_lsn = endpos / BYTES_PER_SECTOR;
-    //printf("MAX LSN = %ld\n", disk->max_lsn);
+    fseek(cfdev->fd, 0, SEEK_END);
+    endpos = ftell(cfdev->fd);
+    cfdev->max_lsn = endpos / BYTES_PER_SECTOR;
+    //printf("MAX LSN = %ld\n", cfdev->max_lsn);
   }
 }
 
@@ -517,12 +500,8 @@ void calculate_chs_values(struct cf_controller *cfdev)
   int cyl;
   int target_rem = 0;
 
-  if (cfdev->disk[0].fd) {
-    lsn = cfdev->disk[0].max_lsn;
-  }
-
-  if (cfdev->disk[1].fd) {
-    lsn = cfdev->disk[1].max_lsn;
+  if (cfdev->fd) {
+    lsn = cfdev->max_lsn;
   }
 
   debugf(20, "Biggest LSN is %ld\n", lsn);
@@ -543,7 +522,7 @@ void calculate_chs_values(struct cf_controller *cfdev)
 	    int q = quot / spt;
 	    int r = quot % spt;
 
-	    debugf(20, "... %d:d\n", q, spt); 
+	    debugf(50, "... %d:d\n", q, spt); 
 
 	    if (r == 0) {
 	      debugf(20, "Perfect CHS=%d:%d:%d found\n", q, heads, spt);
@@ -590,7 +569,7 @@ struct hw_device* compact_flash_create (void)
   }
 
   connect_to_disk_file(cfdev, 0);
-  connect_to_disk_file(cfdev, 1);
+  //connect_to_disk_file(cfdev, 1);
 
   calculate_chs_values(cfdev);
 
