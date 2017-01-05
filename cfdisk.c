@@ -359,6 +359,11 @@ void exec_read_cmd(struct cf_controller *cfdev)
     return;
   }
 
+  fseek(cfdev->fd, cfdev->lsn*BYTES_PER_SECTOR, SEEK_SET);
+  fread(cfdev->data, 1, BYTES_PER_SECTOR, cfdev->fd);
+  cfdev->count = BYTES_PER_SECTOR;
+  cfdev->index = 0;
+  cfdev->status_reg |= SR_DRQ;
 }
 
 void execute_command(U8 cmd, struct cf_controller *cfdev)
