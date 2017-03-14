@@ -1,6 +1,6 @@
 SRCS=6809.c cfdisk.c command.c disk.c eon.c fileio.c gtron.c \
-	imux.c ioexpand.c machine.c main.c mc6850.c miscsbc.c \
-	mmu.c monitor.c serial.c symtab.c timer.c wpc.c wpclib.c \
+	imux.c ioexpand.c leds.c machine.c main.c mc6850.c miscsbc.c \
+	mmu.c monitor.c sdcard.c serial.c symtab.c timer.c wpc.c wpclib.c \
 	debug.c
 
 CFLAGS=-DHAVE_READLINE -DHAVE_TERMIOS -DH6309
@@ -13,23 +13,25 @@ LD=gcc
 
 HDRS=$(wildcard *.h)
 OBJS=$(subst .c,.o,$(SRCS))
-EXE=em09
 
 .c.o: $(HDRS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 .PHONY:	all info clean
 
-all: $(EXE)
+all: em09
 
 info:
 	@echo Sources $(SRCS)
 	@echo Headers $(HDRS)
 	@echo Objects $(OBJS)
 
-$(EXE): $(OBJS)
+em09: $(OBJS)
 	$(LD) -o $@ $(OBJS) $(LIBS)
 
+install: em09
+	cp em09 /home/bob/bin
+
 clean:
-	rm -f $(EXE) $(OBJS) *~
+	rm -f em09 $(OBJS) *~
 

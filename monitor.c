@@ -1802,6 +1802,14 @@ int load_s19(FILE *fp)
 	  done = 0;
 	  break;
 
+	case 0:
+	case 5:
+	  {
+	    // Silently ignore these records
+	    int res = fscanf (fp, "%*[\r\n]"); /* skip any form of line ending */
+	  }
+	  break;
+
 	default:
 	  printf ("line %d: S%d not supported.\n", line, type);
 	  done = 0;

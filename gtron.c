@@ -13,6 +13,8 @@ void gtron_init (const char *boot_rom_file)
   struct hw_device *iodev;
   struct hw_device *uart;
   struct hw_device *cfdev;
+  struct hw_device *sevensegdev;
+  struct hw_device *sddev;
 
   printf("GTron init: rom='%s'\n", boot_rom_file);
 
@@ -25,9 +27,13 @@ void gtron_init (const char *boot_rom_file)
   iodev = ioexpand_create();
   uart = mc6850_create();
   cfdev = compact_flash_create();
+  sevensegdev = leds_create();
+  sddev = sdcard_create();
 
   ioexpand_attach(iodev, 0, 0x00, uart);
   ioexpand_attach(iodev, 2, 0x00, cfdev);
+  ioexpand_attach(iodev, 14, 0x00, sevensegdev);
+  ioexpand_attach(iodev, 27, 0x00, sevensegdev);
   device_define(iodev, 0, 0xff00, 128, MAP_READWRITE);
 }
 

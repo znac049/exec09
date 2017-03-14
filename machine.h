@@ -161,6 +161,8 @@ struct hw_device* mc6850_create (void);
 struct hw_device* small_mmu_create (struct hw_device *realdev);
 struct hw_device *ioexpand_create (void);
 struct hw_device* compact_flash_create (void);
+struct hw_device* sdcard_create (void);
+struct hw_device* leds_create (void);
 struct hw_device *imux_create (unsigned int cpu_line);
 struct hw_device *null_create (void);
 struct hw_device *oscillator_create(struct hw_device *int_dev, unsigned int int_line);

@@ -71,6 +71,7 @@ void ioexpand_write (struct hw_device *dev, unsigned long addr, U8 val)
 {
 	struct ioexpand *iom = (struct ioexpand *)dev->priv;
         int slot = addr / IO_WINDOW;
+
 	dev = iom->ios[slot];
 	if (!dev)
 		sim_error ("expander write %02X to %04X has no backing device\n", val, addr);
