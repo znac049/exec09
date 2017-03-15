@@ -476,7 +476,7 @@ void connect_to_disk_file(struct cf_controller *cfdev, int diskNum)
 
   sprintf(name, "cfdisk%d-%d.dsk", cfdev->controllerId, diskNum);
 
-  //printf("DISK: %s\n", name);
+  printf("CF DISK: %s\n", name);
   cfdev->fd = file_open(&cf_path, name, "r");
 
   cfdev->name = strdup(file_get_fqname());
@@ -509,6 +509,10 @@ void calculate_chs_values(struct cf_controller *cfdev)
     lsn = cfdev->max_lsn;
   }
 
+  if (lsn == 0) {
+    return;
+  }
+  
   debugf(20, "Biggest LSN is %ld\n", lsn);
   while (target_rem < 1024) {
     for (heads=16; heads; heads--) {
@@ -574,7 +578,6 @@ struct hw_device* compact_flash_create (void)
   }
 
   connect_to_disk_file(cfdev, 0);
-  //connect_to_disk_file(cfdev, 1);
 
   calculate_chs_values(cfdev);
 
